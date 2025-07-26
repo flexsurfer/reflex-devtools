@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: 'dist',
+    outDir: '../reflex-devtools/dist/ui',
     emptyOutDir: true,
   }
 }); 

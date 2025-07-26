@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 export interface ServerConfig {
   port: number;
@@ -16,12 +17,18 @@ export class DevtoolsServer {
   private config: ServerConfig;
   private uiClients: Set<WebSocket> = new Set();
   private sdkClients: Set<WebSocket> = new Set();
+  private uiPath: string;
 
   constructor(config: ServerConfig) {
     this.config = {
       host: 'localhost',
       ...config
     };
+
+    // Get the directory of the current module and resolve UI path
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    this.uiPath = path.join(__dirname, '../ui');
 
     this.app = express();
     this.server = createServer(this.app);
@@ -35,7 +42,7 @@ export class DevtoolsServer {
   private setupMiddleware(): void {
     this.app.use(cors());
     this.app.use(express.json());
-    this.app.use(express.static(path.join(process.cwd(), '../reflex-devtool-ui/dist')));
+    this.app.use(express.static(this.uiPath));
   }
 
   private setupRoutes(): void {
@@ -61,7 +68,7 @@ export class DevtoolsServer {
 
     // Serve UI dashboard for all other routes
     this.app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(process.cwd(), '../reflex-devtool-ui/dist/index.html'));
+      res.sendFile(path.join(this.uiPath, 'index.html'));
     });
   }
 

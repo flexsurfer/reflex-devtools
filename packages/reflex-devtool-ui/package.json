@@ -12,7 +12,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@microlink/react-json-view": "^1.26.2",
-    "@flexsurfer/reflex": ">=0.1.7"
+    "@flexsurfer/reflex": ">=0.1.9"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",
