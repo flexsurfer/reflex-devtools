@@ -1,0 +1,17 @@
+.vertical-splitter {
+  height: 4px;
+  background: #444;
+  cursor: row-resize;
+  transition: background-color 0.2s;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.vertical-splitter:hover {
+  background: #555;
+}
+
+.vertical-splitter:active,
+.vertical-splitter.dragging {
+  background: #666;
+} 

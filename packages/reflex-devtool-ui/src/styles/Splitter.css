@@ -1,0 +1,17 @@
+.splitter {
+  width: 4px;
+  background: #444;
+  cursor: col-resize;
+  transition: background-color 0.2s;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.splitter:hover {
+  background: #555;
+}
+
+.splitter:active,
+.splitter.dragging {
+  background: #666;
+} 

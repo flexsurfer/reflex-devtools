@@ -1,0 +1,111 @@
+.trace-panel-container {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.trace-panel-container .panel-content {
+  flex: 1;
+  overflow: auto;
+}
+
+.trace-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.trace-header {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.trace-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.trace-panel-container .json-container {
+  flex: 1;
+  overflow: auto;
+  background-color: var(--color-bg-primary);
+  border-radius: 4px;
+}
+
+.trace-panel-container .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.trace-panel-container .empty-state p {
+  margin: 4px 0;
+}
+
+/* Render table styles */
+.render-table-container {
+  flex: 1;
+  overflow: auto;
+  background-color: var(--color-bg-primary);
+}
+
+.render-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+}
+
+.render-table th {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.render-table td {
+  padding: 4px 0px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.render-table tbody tr:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.op-type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.operation-cell {
+  font-family: inherit;
+  word-break: break-word;
+  max-width: 300px;
+}
+
+.duration-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+} 

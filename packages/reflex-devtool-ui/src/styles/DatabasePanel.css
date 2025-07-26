@@ -1,0 +1,7 @@
+.db-container {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  height: 100%; /* Ensure container takes full height */
+  overflow: hidden; /* Prevent container-level scrolling */
+}
