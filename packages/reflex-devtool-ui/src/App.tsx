@@ -3,7 +3,6 @@ import TracesPanel from './components/TracesPanel';
 import DatabasePanel from './components/DatabasePanel';
 import TracePanel from './components/TracePanel';
 import Splitter from './components/Splitter';
-import VerticalSplitter from './components/VerticalSplitter';
 import './App.css';
 
 function App() {
@@ -18,7 +17,7 @@ function App() {
           <Splitter />
           <div className="right-panels">
             <DatabasePanel />
-            <VerticalSplitter />
+            <Splitter orientation="vertical" />
             <TracePanel />
           </div>
         </div>

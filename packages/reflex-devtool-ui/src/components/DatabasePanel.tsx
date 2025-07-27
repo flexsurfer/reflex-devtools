@@ -20,8 +20,8 @@ export default function DatabasePanel() {
                             theme="monokai"
                             collapsed={1}
                             displayDataTypes={false}
-                            displayObjectSize={false}
-                            enableClipboard={false}
+                            displayObjectSize={true}
+                            enableClipboard={true}
                             style={{
                                 backgroundColor: 'transparent',
                                 fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',

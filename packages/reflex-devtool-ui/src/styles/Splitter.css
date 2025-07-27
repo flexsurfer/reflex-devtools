@@ -1,10 +1,20 @@
 .splitter {
-  width: 4px;
   background: #444;
-  cursor: col-resize;
   transition: background-color 0.2s;
   user-select: none;
   flex-shrink: 0;
+}
+
+.splitter.horizontal {
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.splitter.vertical {
+  height: 4px;
+  width: 100%;
+  cursor: row-resize;
 }
 
 .splitter:hover {

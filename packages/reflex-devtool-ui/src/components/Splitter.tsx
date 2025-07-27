@@ -1,76 +1,82 @@
 import { useEffect, useRef } from 'react';
 import '../styles/Splitter.css';
 
-export default function Splitter() {
-  const splitterRef = useRef<HTMLDivElement>(null);
+export default function Splitter({ orientation = 'horizontal' }: { orientation?: 'horizontal' | 'vertical' }) {
+    const splitterRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const splitter = splitterRef.current;
-    if (!splitter) return;
+    const isVertical = orientation === 'vertical';
 
-    let isDragging = false;
-    let startX = 0;
-    let startSplitPosition = 20; // Default split position
+    useEffect(() => {
+        const splitter = splitterRef.current;
+        if (!splitter) return;
 
-    const handleMouseDown = (e: MouseEvent) => {
-      isDragging = true;
-      startX = e.clientX;
-      
-      // Get current split position from CSS variable
-      const splitContainer = splitter.closest('.split-container') as HTMLElement;
-      if (splitContainer) {
-        const currentPos = getComputedStyle(splitContainer).getPropertyValue('--split-position').trim();
-        startSplitPosition = parseFloat(currentPos) || 20;
-      }
-      
-      splitter.classList.add('dragging');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      
-      e.preventDefault();
-    };
+        let isDragging = false;
+        let startPos = 0;
+        let startSplitPosition = 0;
+        const positionVar = isVertical ? '--vertical-split-position' : '--split-position';
+        const containerSelector = isVertical ? '.right-panels' : '.split-container';
+        const resizeCursor = isVertical ? 'row-resize' : 'col-resize';
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
+        const handleMouseDown = (e: MouseEvent) => {
+            isDragging = true;
+            startPos = isVertical ? e.clientY : e.clientX;
 
-      const splitContainer = splitter.closest('.split-container') as HTMLElement;
-      if (!splitContainer) return;
+            // Get current split position from CSS variable
+            const splitContainer = splitter.closest(containerSelector) as HTMLElement;
+            if (splitContainer) {
+                const currentPos = getComputedStyle(splitContainer).getPropertyValue(positionVar).trim();
+                startSplitPosition = parseFloat(currentPos) || startSplitPosition;
+            }
 
-      const containerRect = splitContainer.getBoundingClientRect();
-      const deltaX = e.clientX - startX;
-      const deltaPercent = (deltaX / containerRect.width) * 100;
-      const newPosition = Math.max(10, Math.min(90, startSplitPosition + deltaPercent));
-      
-      // Update CSS variable
-      splitContainer.style.setProperty('--split-position', `${newPosition}%`);
-    };
+            splitter.classList.add('dragging');
+            document.body.style.cursor = resizeCursor;
+            document.body.style.userSelect = 'none';
 
-    const handleMouseUp = () => {
-      if (!isDragging) return;
-      
-      isDragging = false;
-      splitter.classList.remove('dragging');
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
+            e.preventDefault();
+        };
 
-    // Add event listeners
-    splitter.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging) return;
 
-    // Cleanup
-    return () => {
-      splitter.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
+            const splitContainer = splitter.closest(containerSelector) as HTMLElement;
+            if (!splitContainer) return;
 
-  return (
-    <div 
-      ref={splitterRef}
-      className="splitter"
-    />
-  );
+            const containerRect = splitContainer.getBoundingClientRect();
+            const delta = isVertical ? (e.clientY - startPos) : (e.clientX - startPos);
+            const dimension = isVertical ? containerRect.height : containerRect.width;
+            const deltaPercent = (delta / dimension) * 100;
+            const newPosition = Math.max(10, Math.min(90, startSplitPosition + deltaPercent));
+
+            // Update CSS variable
+            splitContainer.style.setProperty(positionVar, `${newPosition}%`);
+        };
+
+        const handleMouseUp = () => {
+            if (!isDragging) return;
+
+            isDragging = false;
+            splitter.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        // Add event listeners
+        splitter.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        // Cleanup
+        return () => {
+            splitter.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
+
+    return (
+        <div
+            ref={splitterRef}
+            className={`splitter ${orientation}`}
+        />
+    );
 } 
