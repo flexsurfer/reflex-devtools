@@ -4,7 +4,6 @@
   "description": "Developer tools for applications built with the reflex library",
   "private": true,
   "packageManager": "pnpm@10.13.1",
-
   "scripts": {
     "build": "pnpm -r build",
     "build:devtools": "pnpm --filter @flexsurfer/reflex-devtools build",
@@ -12,7 +11,8 @@
     "dev": "pnpm -r dev",
     "dev:ui": "pnpm --filter reflex-devtool-ui dev",
     "dev:server": "pnpm --filter @flexsurfer/reflex-devtools start",
-    "dev:testapp": "pnpm --filter reflex-test-app dev"
+    "dev:testapp": "pnpm --filter reflex-test-app dev",
+    "clean": "pnpm dlx rimraf node_modules dist packages/*/node_modules packages/*/dist"
   },
   "keywords": ["devtools", "debugging", "react", "react-native", "reflex"],
   "author": "flexsurfer",

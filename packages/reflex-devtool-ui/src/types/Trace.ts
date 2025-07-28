@@ -14,8 +14,14 @@ export interface Trace extends TraceOpts {
     duration?: number;
 }
 
+export type Badge = {
+    label: string;
+    number: number;
+}
+
 export type TraceItem = {
     id: number;
     type: string;
     traces: Trace[];
+    badges: Badge[];
 }

@@ -1,28 +1,29 @@
 import Header from './components/Header';
-import TracesPanel from './components/TracesPanel';
+import TracesListPanel from './components/TracesListPanel';
 import DatabasePanel from './components/DatabasePanel';
-import TracePanel from './components/TracePanel';
+import TraceDetailsPanel from './components/trace/TraceDetailsPanel';
 import Splitter from './components/Splitter';
-import './App.css';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {
-
   return (
-    <div className="app">
-      <Header />
+    <ThemeProvider>
+      <div className="app-container">
+        <Header />
 
-      <main className="main">
-        <div className="split-container">
-          <TracesPanel />
-          <Splitter />
-          <div className="right-panels">
-            <DatabasePanel />
-            <Splitter orientation="vertical" />
-            <TracePanel />
+        <main className="main-content">
+          <div className="split-layout" style={{'--split-position': '25%'} as React.CSSProperties}>
+            <TracesListPanel />
+            <Splitter />
+            <div className="vertical-split-layout" style={{'--vertical-split-position': '70%'} as React.CSSProperties}>
+              <DatabasePanel />
+              <Splitter orientation="vertical" />
+              <TraceDetailsPanel />
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </ThemeProvider>
   );
 }
 

@@ -1,35 +1,23 @@
 import { useSubscription } from '@flexsurfer/reflex';
-import ReactJson from '@microlink/react-json-view';
-import '../styles/DatabasePanel.css';
+import { JsonViewer } from './JsonViewer';
 
 export default function DatabasePanel() {
     const db = useSubscription(['db']);
 
     return (
-        <div className="db-container">
-            <div className="panel-content">
+        <div className="flex flex-col bg-base-100 h-full overflow-hidden">
+            <div className="p-3 bg-base-200 border-b border-base-300">
+                <h2 className="text-sm">Database State</h2>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
                 {!db ? (
-                    <div className="empty-state">
-                        <p>No database events yet...</p>
-                        <p>Database state changes will appear here!</p>
+                    <div className="flex flex-col items-center justify-center h-full text-base-content/60 text-center">
+                        <p className="text-lg font-medium">No database state yet...</p>
+                        <p className="text-sm">Run your app with devtools enabled to see database state here</p>
                     </div>
                 ) : (
-                    <div className="json-container">
-                        <ReactJson
-                            src={db}
-                            theme="monokai"
-                            collapsed={1}
-                            displayDataTypes={false}
-                            displayObjectSize={true}
-                            enableClipboard={true}
-                            style={{
-                                backgroundColor: 'transparent',
-                                fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
-                                fontSize: '13px',
-                                lineHeight: '1.4'
-                            }}
-                        />
-                    </div>
+                    <JsonViewer src={db} name="db" />
                 )}
             </div>
         </div>

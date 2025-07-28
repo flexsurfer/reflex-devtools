@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import '../styles/Splitter.css';
 
 export default function Splitter({ orientation = 'horizontal' }: { orientation?: 'horizontal' | 'vertical' }) {
     const splitterRef = useRef<HTMLDivElement>(null);
@@ -14,7 +13,7 @@ export default function Splitter({ orientation = 'horizontal' }: { orientation?:
         let startPos = 0;
         let startSplitPosition = 0;
         const positionVar = isVertical ? '--vertical-split-position' : '--split-position';
-        const containerSelector = isVertical ? '.right-panels' : '.split-container';
+        const containerSelector = isVertical ? '.vertical-split-layout' : '.split-layout';
         const resizeCursor = isVertical ? 'row-resize' : 'col-resize';
 
         const handleMouseDown = (e: MouseEvent) => {
@@ -71,12 +70,20 @@ export default function Splitter({ orientation = 'horizontal' }: { orientation?:
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, []);
+    }, [isVertical]);
 
     return (
         <div
             ref={splitterRef}
-            className={`splitter ${orientation}`}
+            className={`
+                bg-base-300 hover:bg-base-content/20 active:bg-base-content/30
+                transition-colors select-none flex-shrink-0
+                ${isVertical 
+                    ? 'h-1 w-full cursor-row-resize' 
+                    : 'w-1 h-full cursor-col-resize'
+                }
+                dragging:bg-base-content/40
+            `}
         />
     );
 } 
