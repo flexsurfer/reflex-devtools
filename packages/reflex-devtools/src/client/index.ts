@@ -24,7 +24,8 @@ class DevtoolsClient {
   constructor(config: DevtoolsConfig) {
     this.config = {
       enabled: true,
-      ...config
+      ...config,
+      serverUrl: config.serverUrl || 'localhost:4000'
     };
   }
 
@@ -189,7 +190,7 @@ export function logEvent(event: EventPayload): void {
   }
 } 
 
-export function initDevtools(config: DevtoolsConfig = { serverUrl: 'localhost:4000' }): void {
+export function enableDevtools(config: DevtoolsConfig = { serverUrl: 'localhost:4000' }): void {
   client = new DevtoolsClient(config);
   client.init();
 }
