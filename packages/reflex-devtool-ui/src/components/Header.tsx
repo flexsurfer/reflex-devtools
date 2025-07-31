@@ -1,9 +1,8 @@
-import { useSubscription } from '@flexsurfer/reflex';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCallback } from 'react';
+import ConnectionStatus from './ConnectionStatus';
 
 export default function Header() {
-    const isConnected = useSubscription<boolean>(['isConnected']);
     const { theme, setTheme } = useTheme();
 
     const handleThemeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -14,7 +13,7 @@ export default function Header() {
     return (
         <header className="bg-base-200 border-b border-base-300 shadow-lg py-2 px-4 flex items-center">
             <div className="navbar-start gap-1">
-                <div className={`status ${isConnected ? 'status-success' : 'status-error'}`}></div>
+                <ConnectionStatus />
                 <h1 className="text-sm font-semibold">Reflex Devtools</h1>
             </div>
 

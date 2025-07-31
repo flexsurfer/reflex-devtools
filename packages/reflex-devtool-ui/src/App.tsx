@@ -2,7 +2,7 @@ import Header from './components/Header';
 import TracesListPanel from './components/TracesListPanel';
 import DatabasePanel from './components/DatabasePanel';
 import TraceDetailsPanel from './components/trace/TraceDetailsPanel';
-import Splitter from './components/Splitter';
+import Splitter from './components/ui/Splitter';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 function App() {

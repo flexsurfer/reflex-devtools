@@ -5,5 +5,6 @@ initAppDb({
     traces: [],
     isConnected: false,
     filter: '',
-    selectedTrace: null
+    selectedTrace: null,
+    showRenderTraces: false
 }); 

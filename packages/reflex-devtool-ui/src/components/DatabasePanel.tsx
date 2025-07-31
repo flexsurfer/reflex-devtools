@@ -1,12 +1,12 @@
 import { useSubscription } from '@flexsurfer/reflex';
-import { JsonViewer } from './JsonViewer';
+import { JsonViewer } from './ui/JsonViewer';
 
 export default function DatabasePanel() {
     const db = useSubscription(['db']);
 
     return (
         <div className="flex flex-col bg-base-100 h-full overflow-hidden">
-            <div className="p-3 bg-base-200 border-b border-base-300">
+            <div className="p-2 bg-base-200 border-b border-base-300 pt-3">
                 <h2 className="text-sm">Database State</h2>
             </div>
 

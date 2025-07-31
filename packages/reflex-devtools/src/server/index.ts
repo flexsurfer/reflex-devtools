@@ -49,7 +49,6 @@ export class DevtoolsServer {
     // HTTP fallback endpoint for receiving events from client SDK
     this.app.post('/event', (req: Request, res: Response) => {
       const event = req.body;
-      console.log('[Reflex Devtools] Received HTTP event:', event);
       
       // Forward event to all connected UI clients
       this.broadcastToUI(event);

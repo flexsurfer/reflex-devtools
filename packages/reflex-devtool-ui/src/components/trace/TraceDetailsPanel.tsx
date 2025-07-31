@@ -1,8 +1,8 @@
 import { useSubscription } from '@flexsurfer/reflex';
 import { TraceItem } from '../../types/Trace';
-import EventDetails from './EventDetails';
+import TraceEventDetails from './TraceEventDetails';
 import TraceRenderDetails from './TraceRenderDetails';
-import { Badge } from '../Badge';
+import { Badge } from '../ui/Badge';
 
 export default function TraceDetailsPanel() {
     const selectedTrace = useSubscription<TraceItem | null>(['selectedTrace']);
@@ -25,7 +25,7 @@ export default function TraceDetailsPanel() {
                         <p className="text-sm">Click on a trace item to see its details here</p>
                     </div>
                 ) : selectedTrace.type === 'event' ?
-                    <EventDetails tags={selectedTrace.traces[0]?.tags ?? {}} /> :
+                    <TraceEventDetails tags={selectedTrace.traces[0]?.tags ?? {}} /> :
                     <TraceRenderDetails traces={selectedTrace.traces} />}
             </div>
         </div>

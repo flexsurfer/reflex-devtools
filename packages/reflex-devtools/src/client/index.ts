@@ -1,7 +1,7 @@
-import { enableTracing, registerTraceCb, disableTracing, getAppDb } from "@flexsurfer/reflex";
+import { registerTraceCb, getAppDb } from "@flexsurfer/reflex";
 
 export interface DevtoolsConfig {
-  serverUrl: string;
+  serverUrl?: string;
   enabled?: boolean;
 }
 
@@ -16,26 +16,47 @@ class DevtoolsClient {
   private config: DevtoolsConfig;
   private ws: WebSocket | null = null;
   private isConnected = false;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
   private connectedUIs = 0;
   private isTracingEnabled = false;
+  private serverAvailable = false;
 
   constructor(config: DevtoolsConfig) {
     this.config = {
       enabled: true,
+      serverUrl: 'localhost:4000',
       ...config,
-      serverUrl: config.serverUrl || 'localhost:4000'
     };
   }
 
   async init(): Promise<void> {
+
     if (!this.config.enabled) return;
+
+    this.startTracing();
+
+    this.serverAvailable = await this.checkServerAvailability();
+    if (!this.serverAvailable) {
+      console.warn('[Reflex Devtools] Server not available, disabling devtools');
+      this.stopTracing();
+      return;
+    }
 
     try {
       await this.connectWebSocket();
     } catch (error) {
-      console.warn('[Reflex Devtools] WebSocket connection failed, using HTTP fallback');
+    }
+  }
+
+  private async checkServerAvailability(): Promise<boolean> {
+    try {
+      // Use a simple HEAD request to check if server is running
+      const response = await fetch(`http://${this.config.serverUrl}/health`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(1000) // 1 second timeout
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
     }
   }
 
@@ -46,8 +67,6 @@ class DevtoolsClient {
 
       this.ws.onopen = () => {
         this.isConnected = true;
-        this.reconnectAttempts = 0;
-        console.log('[Reflex Devtools] Connected via WebSocket');
         resolve();
       };
 
@@ -56,18 +75,15 @@ class DevtoolsClient {
           const message = JSON.parse(event.data);
           this.handleServerMessage(message);
         } catch (error) {
-          console.error('[Reflex Devtools] Error parsing server message:', error);
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('[Reflex Devtools] WebSocket error:', error);
         reject(error);
       };
 
       this.ws.onclose = () => {
         this.isConnected = false;
-        this.attemptReconnect();
       };
 
       // Set a timeout for connection
@@ -80,32 +96,18 @@ class DevtoolsClient {
     });
   }
 
-  private attemptReconnect(): void {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      setTimeout(() => {
-        console.log(`[Reflex Devtools] Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        this.connectWebSocket().catch(() => {
-          // Silently fail and try again
-        });
-      }, 2000 * this.reconnectAttempts);
-    }
-  }
-
   private handleServerMessage(message: any): void {
     if (message.type === 'ui-connection-status') {
       const newUICount = message.payload.connectedUIs;
       const previousUICount = this.connectedUIs;
       this.connectedUIs = newUICount;
-      
-      console.log(`[Reflex Devtools] UI connections changed: ${previousUICount} -> ${newUICount}`);
-      
+
       // Start tracing when first UI connects
       if (previousUICount === 0 && newUICount > 0) {
         this.startTracing();
       }
       // Stop tracing when last UI disconnects
-      else if (previousUICount > 0 && newUICount === 0) {
+      else if (newUICount === 0) {
         this.stopTracing();
       }
     }
@@ -113,9 +115,8 @@ class DevtoolsClient {
 
   private startTracing(): void {
     if (!this.isTracingEnabled) {
-      console.log('[Reflex Devtools] Starting tracing - UI connected');
+
       this.isTracingEnabled = true;
-      enableTracing();
 
       registerTraceCb('reflex-devtool', (traces) => {
         this.sendEvent({
@@ -123,7 +124,8 @@ class DevtoolsClient {
           component: 'Reflex',
           payload: traces
         });
-        // TODO: we send patches, so we could have immer object in the UI and just patch it
+        // TODO: we already send patches with events, so we could have immer object in the UI and just patch it,
+        // so we don't need to send entire app db here each time
         this.sendEvent({
           type: 'reflex-app-db',
           component: 'Reflex',
@@ -141,14 +143,12 @@ class DevtoolsClient {
 
   private stopTracing(): void {
     if (this.isTracingEnabled) {
-      console.log('[Reflex Devtools] Stopping tracing - no UI connected');
       this.isTracingEnabled = false;
-      disableTracing();
     }
   }
 
   async sendEvent(event: EventPayload): Promise<void> {
-    if (!this.config.enabled) return;
+    if (!this.config.enabled || !this.serverAvailable) return;
 
     const eventWithTimestamp = {
       ...event,
@@ -161,13 +161,12 @@ class DevtoolsClient {
         this.ws.send(JSON.stringify(eventWithTimestamp));
         return;
       } catch (error) {
-        console.warn('[Reflex Devtools] WebSocket send failed, falling back to HTTP');
       }
     }
 
     // Fallback to HTTP
     try {
-      await fetch(`${this.config.serverUrl}/event`, {
+      await fetch(`http://${this.config.serverUrl}/event`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +174,9 @@ class DevtoolsClient {
         body: JSON.stringify(eventWithTimestamp),
       });
     } catch (error) {
-      console.error('[Reflex Devtools] Failed to send event:', error);
+      console.warn('[Reflex Devtools] Server not available, disabling devtools');
+      this.serverAvailable = false;
+      this.stopTracing();
     }
   }
 }
@@ -186,11 +187,10 @@ export function logEvent(event: EventPayload): void {
   if (client) {
     client.sendEvent(event);
   } else {
-    console.warn('[Reflex Devtools] Client not initialized. Call initDevtools() first.');
   }
-} 
+}
 
-export function enableDevtools(config: DevtoolsConfig = { serverUrl: 'localhost:4000' }): void {
+export function enableDevtools(config: DevtoolsConfig = {}): void {
   client = new DevtoolsClient(config);
   client.init();
 }

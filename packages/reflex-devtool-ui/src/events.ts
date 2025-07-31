@@ -4,10 +4,17 @@ import type { Badge, Trace, TraceItem } from './types/Trace';
 regEvent('add-traces', ({ draftDb }, traces: Trace[]) => {
     const { eventTraceItems, renderTraceItem, badgesMap } = traces.reduce((acc, trace) => {
         if (trace.opType === 'event') {
+            const badges: Badge[] = [];
+            if (trace.tags?.patches?.length > 0) {
+                badges.push({ label: 'db', number: trace.tags!.patches!.length });
+            }
+            if (trace.tags?.effects?.length > 0) {
+                badges.push({ label: 'fx', number: trace.tags!.effects!.length });
+            }
             acc.eventTraceItems.push({
                 id: trace.id,
                 type: 'event',
-                badges: [{ label: 'event', number: 1 }],
+                badges: badges,
                 traces: [trace]
             });
         } else {
@@ -20,8 +27,8 @@ regEvent('add-traces', ({ draftDb }, traces: Trace[]) => {
 
     const getPriority = (opType: string | undefined) => {
         if (opType === 'render') return 0;
-        if (opType === 'sub/run') return 1;
-        if (opType === 'sub') return 2;
+        if (opType === 'sub/create') return 1;
+        if (opType === 'sub/run') return 2;
         if (opType === 'sub/dispose') return 3;
         return 4;
     };
@@ -47,6 +54,7 @@ regEvent('update-db', ({ draftDb }, db: any) => {
 
 regEvent('clear-traces', ({ draftDb }) => {
     draftDb.traces = [];
+    draftDb.selectedTrace = null;
 });
 
 regEvent('set-connected', ({ draftDb }, isConnected: boolean) => {
@@ -55,6 +63,11 @@ regEvent('set-connected', ({ draftDb }, isConnected: boolean) => {
 
 regEvent('set-filter', ({ draftDb }, filter: string) => {
     draftDb.filter = filter;
+    draftDb.selectedTrace = null;
+});
+
+regEvent('toggle-show-render-traces', ({ draftDb }) => {
+    draftDb.showRenderTraces = !draftDb.showRenderTraces;
 });
 
 regEvent('init-socket', () => {

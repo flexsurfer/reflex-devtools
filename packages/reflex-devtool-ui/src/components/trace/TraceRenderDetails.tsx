@@ -1,5 +1,5 @@
 import { Trace } from '../../types/Trace';
-import { Badge } from '../Badge';
+import { Badge } from '../ui/Badge';
 
 export default function TraceRenderDetails({ traces }: { traces: Trace[] }) {
 
@@ -20,7 +20,7 @@ export default function TraceRenderDetails({ traces }: { traces: Trace[] }) {
                                 <Badge opType={trace.opType ?? ''} label={trace.opType ?? ''} />
                             </td>
                             <td className="font-mono text-xs">
-                                {trace.operation || '-'}
+                                {JSON.stringify(trace.tags?.queryV ?? trace.operation).slice(0, 70) || '-'}
                             </td>
                             <td className="text-xs">
                                 {trace.duration ? `${trace.duration.toFixed(2)}` : '-'}

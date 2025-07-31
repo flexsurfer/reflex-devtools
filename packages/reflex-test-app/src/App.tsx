@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { dispatch, useSubscription } from '@flexsurfer/reflex';
 import './App.css';
+import UserItem from './components/UserItem';
 
 function App() {
 
@@ -14,7 +15,8 @@ function App() {
 
   const simulateApiCall = async () => {
     dispatch(['set-loading', true]);
-
+    dispatch(['fake-event']);
+    
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -66,16 +68,11 @@ function App() {
           <h2>User List Component (Reflex)</h2>
           <div className="users-list">
             {users?.map((user: any) => (
-              <div
+              <UserItem
                 key={user.id}
-                className={`user-item ${user.active ? 'active' : 'inactive'}`}
-                onClick={() => handleUserToggle(user.id)}
-              >
-                <span className="user-name">{user.name}</span>
-                <span className={`user-status ${user.active ? 'active' : 'inactive'}`}>
-                  {user.active ? '🟢 Active' : '🔴 Inactive'}
-                </span>
-              </div>
+                userId={user.id}
+                onToggle={handleUserToggle}
+              />
             )) || []}
           </div>
         </section>
