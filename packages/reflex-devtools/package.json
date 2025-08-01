@@ -50,7 +50,7 @@
     "typescript": "^5.2.2"
   },
   "peerDependencies": {
-    "@flexsurfer/reflex": ">=0.1.11"
+    "@flexsurfer/reflex": ">=0.1.12"
   },
   "keywords": [
     "devtools",

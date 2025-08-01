@@ -9,6 +9,8 @@
   [![NPM Version](https://img.shields.io/npm/v/%40flexsurfer%2Freflex)](https://www.npmjs.com/package/@flexsurfer/reflex-devtools)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/flexsurfer/reflex-devtools/pulls)
     
+
+  <img src="screenshot.png" alt="Reflex DevTools Screenshot" width="100%" />
 </div>
 
 ---
