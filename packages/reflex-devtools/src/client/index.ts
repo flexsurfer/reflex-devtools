@@ -49,10 +49,9 @@ class DevtoolsClient {
 
   private async checkServerAvailability(): Promise<boolean> {
     try {
-      // Use a simple HEAD request to check if server is running
+      // Use a simple GET request to check if server is running
       const response = await fetch(`http://${this.config.serverUrl}/health`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(1000) // 1 second timeout
+        method: 'GET'
       });
       return response.ok;
     } catch (error) {
