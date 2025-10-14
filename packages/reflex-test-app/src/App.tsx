@@ -15,7 +15,7 @@ function App() {
 
   const simulateApiCall = async () => {
     dispatch(['set-loading', true]);
-    dispatch(['fake-event']);
+    dispatch(['fake-event', 2, { name: 'John Doe' }]);
     
     try {
       // Simulate API delay

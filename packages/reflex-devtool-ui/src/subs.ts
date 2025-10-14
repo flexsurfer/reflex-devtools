@@ -9,16 +9,18 @@ regSub('filter');
 regSub('splitPosition');
 regSub('isDragging');
 regSub('selectedTrace');
-regSub('showRenderTraces');
+regSub('showRenders');
+regSub('showBadges');
+regSub('showParams');
 
 // Filtered traces - filter by text and toggle visibility of render traces
-regSub('filteredTraces', (traces, filter, showRenderTraces) => {
+regSub('filteredTraces', (traces, filter, showRenders) => {
     const hasTextFilter = filter && filter.trim() !== '';
     const filterLower = hasTextFilter ? filter.toLowerCase().trim() : '';
     
     return traces.filter((trace: TraceItem) => {
-        // If showRenderTraces is true, hide render traces
-        if (!showRenderTraces && trace.type === 'render') {
+        // If showRenders is true, hide render traces
+        if (!showRenders && trace.type === 'render') {
             return false;
         }
         
@@ -42,4 +44,4 @@ regSub('filteredTraces', (traces, filter, showRenderTraces) => {
         
         return false;
     });
-}, () => [['traces'], ['filter'], ['showRenderTraces']]); 
+}, () => [['traces'], ['filter'], ['showRenders']]); 

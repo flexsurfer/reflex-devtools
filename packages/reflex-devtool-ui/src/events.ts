@@ -66,8 +66,16 @@ regEvent('set-filter', ({ draftDb }, filter: string) => {
     draftDb.selectedTrace = null;
 });
 
-regEvent('toggle-show-render-traces', ({ draftDb }) => {
-    draftDb.showRenderTraces = !draftDb.showRenderTraces;
+regEvent('toggle-show-renders', ({ draftDb }) => {
+    draftDb.showRenders = !draftDb.showRenders;
+});
+
+regEvent('toggle-show-badges', ({ draftDb }) => {
+    draftDb.showBadges = !draftDb.showBadges;
+});
+
+regEvent('toggle-show-params', ({ draftDb }) => {
+    draftDb.showParams = !draftDb.showParams;
 });
 
 regEvent('init-socket', () => {

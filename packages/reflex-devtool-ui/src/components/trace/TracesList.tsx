@@ -10,6 +10,8 @@ export default function TracesList() {
 
     const traces = useSubscription<TraceItem[]>(['filteredTraces']);
     const selectedTrace = useSubscription<TraceItem | null>(['selectedTrace']);
+    const showBadges = useSubscription<boolean>(['showBadges']);
+    const showParams = useSubscription<boolean>(['showParams']);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -42,7 +44,13 @@ export default function TracesList() {
                 traces.map((trace, index) => {
                     const selected = selectedTrace?.id === trace.id;
                     return (
-                        <TraceListItem key={index} item={trace} selected={selected} />
+                        <TraceListItem
+                            key={index}
+                            item={trace}
+                            selected={selected}
+                            showBadges={showBadges}
+                            showParams={showParams}
+                        />
                     );
                 })
             )}

@@ -6,5 +6,7 @@ initAppDb({
     isConnected: false,
     filter: '',
     selectedTrace: null,
-    showRenderTraces: false
+    showRenders: false,
+    showBadges: false,
+    showParams: true
 }); 

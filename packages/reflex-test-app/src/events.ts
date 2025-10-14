@@ -4,6 +4,10 @@ import { regEffect, regEvent } from "@flexsurfer/reflex";
 regEvent('increment-counter', (coeffects) => {
   const { draftDb } = coeffects;
   draftDb.counter = draftDb.counter + 1;
+  draftDb.field1 = {};
+  draftDb.field1.field2 = "test";
+  draftDb.field1.field4 = {};
+  draftDb.field1.field4.field3 = "test2";
 });
 
 regEvent('toggle-user', (coeffects, userId: number) => {

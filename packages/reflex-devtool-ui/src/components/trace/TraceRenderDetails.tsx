@@ -4,9 +4,9 @@ import { Badge } from '../ui/Badge';
 export default function TraceRenderDetails({ traces }: { traces: Trace[] }) {
 
     return (
-        <div className="overflow-x-auto">
+        <div className="flex-1 overflow-x-auto overflow-y-auto">
             <table className="table table-zebra w-full table-xs">
-                <thead>
+                <thead className="sticky top-0 bg-base-100">
                     <tr>
                         <th>Op Type</th>
                         <th>Operation</th>

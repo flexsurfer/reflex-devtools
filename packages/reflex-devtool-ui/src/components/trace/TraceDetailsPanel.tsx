@@ -18,9 +18,9 @@ export default function TraceDetailsPanel() {
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-hidden flex">
                 {!selectedTrace ? (
-                    <div className="flex flex-col items-center justify-center h-full text-base-content/60 text-center">
+                    <div className="flex flex-1 flex-col items-center justify-center h-full text-base-content/60 text-center">
                         <p className="text-lg font-medium">No trace selected...</p>
                         <p className="text-sm">Click on a trace item to see its details here</p>
                     </div>
