@@ -1,4 +1,5 @@
 import { dispatch, regEffect } from "@flexsurfer/reflex";
+import { saveSettings } from "./utils/settingsStorage";
 
 const connectWebSocket = () => {
     const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
@@ -37,4 +38,8 @@ const connectWebSocket = () => {
 
 regEffect('init-socket', () => {
     connectWebSocket();
+});
+
+regEffect('save-settings', (settings) => {
+    saveSettings(settings);
 });

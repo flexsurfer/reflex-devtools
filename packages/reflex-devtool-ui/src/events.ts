@@ -1,4 +1,4 @@
-import { regEvent } from "@flexsurfer/reflex";
+import { current, regEvent } from "@flexsurfer/reflex";
 import type { Badge, Trace, TraceItem } from './types/Trace';
 
 regEvent('add-traces', ({ draftDb }, traces: Trace[]) => {
@@ -67,15 +67,18 @@ regEvent('set-filter', ({ draftDb }, filter: string) => {
 });
 
 regEvent('toggle-show-renders', ({ draftDb }) => {
-    draftDb.showRenders = !draftDb.showRenders;
+    draftDb.settings.showRenders = !draftDb.settings.showRenders;
+    return [['save-settings', current(draftDb.settings)]];
 });
 
 regEvent('toggle-show-badges', ({ draftDb }) => {
-    draftDb.showBadges = !draftDb.showBadges;
+    draftDb.settings.showBadges = !draftDb.settings.showBadges;
+    return [['save-settings', current(draftDb.settings)]];
 });
 
 regEvent('toggle-show-params', ({ draftDb }) => {
-    draftDb.showParams = !draftDb.showParams;
+    draftDb.settings.showParams = !draftDb.settings.showParams;
+    return [['save-settings', current(draftDb.settings)]];
 });
 
 regEvent('init-socket', () => {

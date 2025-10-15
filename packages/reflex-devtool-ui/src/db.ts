@@ -1,4 +1,5 @@
 import { initAppDb } from "@flexsurfer/reflex";
+import { loadSettings } from "./utils/settingsStorage";
 
 initAppDb({
     db: "",
@@ -6,7 +7,5 @@ initAppDb({
     isConnected: false,
     filter: '',
     selectedTrace: null,
-    showRenders: false,
-    showBadges: false,
-    showParams: true
+    settings: loadSettings()
 }); 

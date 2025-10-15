@@ -9,9 +9,12 @@ regSub('filter');
 regSub('splitPosition');
 regSub('isDragging');
 regSub('selectedTrace');
-regSub('showRenders');
-regSub('showBadges');
-regSub('showParams');
+regSub('settings');
+
+// Settings
+regSub('showRenders', (settings) => settings.showRenders, () => [['settings']]);
+regSub('showBadges', (settings) => settings.showBadges, () => [['settings']]);
+regSub('showParams', (settings) => settings.showParams, () => [['settings']]);
 
 // Filtered traces - filter by text and toggle visibility of render traces
 regSub('filteredTraces', (traces, filter, showRenders) => {
