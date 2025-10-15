@@ -146,6 +146,80 @@ class DevtoolsClient {
     }
   }
 
+  private safeStringify(obj: any): string {
+    
+    const replacer = (_key: string, value: any): any => {
+      // Handle primitive types that are serializable
+      if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
+        return value;
+      }
+
+      // Handle undefined
+      if (value === undefined) {
+        return 'undefined';
+      }
+
+      // Handle functions
+      if (typeof value === 'function') {
+        return '[Function]';
+      }
+
+      // Handle symbols
+      if (typeof value === 'symbol') {
+        return '[Symbol]';
+      }
+
+      // Handle BigInt
+      if (typeof value === 'bigint') {
+        return `[BigInt: ${value.toString()}]`;
+      }
+
+      // Handle objects
+      if (typeof value === 'object') {
+
+        // Handle specific object types
+        if (value instanceof Map) {
+          return Array.from(value.entries()) ;
+        }
+        if (value instanceof Set) {
+          return Array.from(value) ;
+        }
+        if (value instanceof WeakMap) {
+          return '[WeakMap]';
+        }
+        if (value instanceof WeakSet) {
+          return '[WeakSet]';
+        }
+  
+        if (value instanceof Error) {
+          return {
+            '[Error]': {
+              name: value.name,
+              message: value.message,
+              stack: value.stack
+            }
+          };
+        }
+
+        // For plain objects and arrays, continue recursion
+        return value;
+      }
+
+      // Fallback for any other type
+      return `[${typeof value}]`;
+    };
+
+    try {
+      return JSON.stringify(obj, replacer);
+    } catch (error) {
+      console.error('[Reflex Devtools] Error serializing object:', error);
+      if (error instanceof Error && error.message.includes("Cannot perform 'get' on a proxy that has been revoked")) {
+        console.warn('[Reflex Devtools] ⚠️ Important: When passing data from draftDb to effects, always use the current() function to get the current (final) value. The draftDb object is an Immer draft proxy that will be finalized after the event completes, so passing draftDb data directly to effects will result in the empty proxy object.');
+      }
+      return '[Serialization Error]';
+    }
+  }
+
   async sendEvent(event: EventPayload): Promise<void> {
     if (!this.config.enabled || !this.serverAvailable) return;
 
@@ -154,10 +228,12 @@ class DevtoolsClient {
       timestamp: event.timestamp || Date.now()
     };
 
+    const serializedEvent = this.safeStringify(eventWithTimestamp);
+
     // Try WebSocket first
     if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
       try {
-        this.ws.send(JSON.stringify(eventWithTimestamp));
+        this.ws.send(serializedEvent);
         return;
       } catch (error) {
       }
@@ -170,7 +246,7 @@ class DevtoolsClient {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(eventWithTimestamp),
+        body: serializedEvent,
       });
     } catch (error) {
       console.warn('[Reflex Devtools] Server not available, disabling devtools');
