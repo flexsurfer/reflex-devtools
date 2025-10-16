@@ -2,6 +2,7 @@ export interface Settings {
   showRenders: boolean;
   showBadges: boolean;
   showParams: boolean;
+  showTimestamps: boolean;
 }
 
 const SETTINGS_KEY = 'reflex-devtools-settings';
@@ -10,6 +11,7 @@ const DEFAULT_SETTINGS: Settings = {
   showRenders: false,
   showBadges: false,
   showParams: true,
+  showTimestamps: false,
 };
 
 export function loadSettings(): Settings {

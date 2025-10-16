@@ -42,6 +42,42 @@ function App() {
     }
   };
 
+  const dispatchTestEventWithBadParams = () => {
+
+    // Try to create a simple proxy for testing
+    const proxyTarget = { original: 'value' };
+    const proxy = new Proxy(proxyTarget, {
+      get(target, prop) {
+        return target[prop as keyof typeof target];
+      }
+    });
+
+    // Create problematic payload
+    const badPayload: any = {
+      function: () => console.log('test function'),
+      symbol: Symbol('test symbol'),
+      undefined: undefined,
+      bigint: 123n,
+      map: new Map([['key1', 'value1'], ['key2', 'value2']]),
+      set: new Set([1, 2, 3, 3]),
+      weakMap: new WeakMap(),
+      weakSet: new WeakSet(),
+      regexp: /test/gi,
+      date: new Date(),
+      error: new Error('Test error'),
+      proxy: proxy,
+      nested: {
+        deep: {
+          function: function() { return 'nested function'; },
+          symbol: Symbol('nested symbol'),
+          undefined: undefined,
+        }
+      }
+    };
+
+    dispatch(['test-event-with-bad-params', badPayload]);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -92,6 +128,21 @@ function App() {
               className="error-button"
             >
               Trigger Error
+            </button>
+            <button
+              onClick={dispatchTestEventWithBadParams}
+              className="test-button"
+            >
+              Test Bad Params
+            </button>
+
+            <button
+              onClick={() => {
+                dispatch(['test-event-with-immer-proxy']);
+              }}
+              className="test-button"
+            >
+              Test Immer Proxy
             </button>
           </div>
         </section>

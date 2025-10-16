@@ -37,6 +37,14 @@ regEvent('fake-event', () => {
   return [['fake-effect']];
 });
 
-regEffect('fake-effect', () => {
-  console.log('fake-effect');
+regEvent('test-event-with-bad-params', ({draftDb}, badPayload: any) => {
+  draftDb.badPayload = badPayload;
+});
+
+regEvent('test-event-with-immer-proxy', ({draftDb}) => {
+  return [['fake-effect', draftDb.immerPayloadTest]];
+});
+
+regEffect('fake-effect', (param) => {
+  console.log('fake-effect', param);
 });

@@ -9,6 +9,7 @@ export default function TraceViewPanel({ isOpen }: TraceViewPanelProps) {
   const showRenders = useSubscription<boolean>(['showRenders']);
   const showBadges = useSubscription<boolean>(['showBadges']);
   const showParams = useSubscription<boolean>(['showParams']);
+  const showTimestamps = useSubscription<boolean>(['showTimestamps']);
 
   const handleToggleShowRenders = useCallback(() => {
     dispatch(['toggle-show-renders']);
@@ -20,6 +21,10 @@ export default function TraceViewPanel({ isOpen }: TraceViewPanelProps) {
 
   const handleToggleShowParams = useCallback(() => {
     dispatch(['toggle-show-params']);
+  }, []);
+
+  const handleToggleShowTimestamps = useCallback(() => {
+    dispatch(['toggle-show-timestamps']);
   }, []);
 
   if (!isOpen) return null;
@@ -55,6 +60,16 @@ export default function TraceViewPanel({ isOpen }: TraceViewPanelProps) {
             className="checkbox checkbox-xs"
           />
           <span>Show params</span>
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer p-1 hover:bg-base-200 rounded text-sm">
+          <input
+            type="checkbox"
+            checked={showTimestamps || false}
+            onChange={handleToggleShowTimestamps}
+            className="checkbox checkbox-xs"
+          />
+          <span>Show timestamps</span>
         </label>
       </div>
     </div>

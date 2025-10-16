@@ -12,6 +12,7 @@ export default function TracesList() {
     const selectedTrace = useSubscription<TraceItem | null>(['selectedTrace']);
     const showBadges = useSubscription<boolean>(['showBadges']);
     const showParams = useSubscription<boolean>(['showParams']);
+    const showTimestamps = useSubscription<boolean>(['showTimestamps']);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -50,6 +51,7 @@ export default function TracesList() {
                             selected={selected}
                             showBadges={showBadges}
                             showParams={showParams}
+                            showTimestamps={showTimestamps}
                         />
                     );
                 })

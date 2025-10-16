@@ -8,5 +8,6 @@ initAppDb({
       { id: 3, name: 'Bob Johnson', active: true }
     ],
     counter: 0,
-    isLoading: false
+    isLoading: false,
+    immerPayloadTest: {test: 'test'}
   });

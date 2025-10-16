@@ -81,6 +81,11 @@ regEvent('toggle-show-params', ({ draftDb }) => {
     return [['save-settings', current(draftDb.settings)]];
 });
 
+regEvent('toggle-show-timestamps', ({ draftDb }) => {
+    draftDb.settings.showTimestamps = !draftDb.settings.showTimestamps;
+    return [['save-settings', current(draftDb.settings)]];
+});
+
 regEvent('init-socket', () => {
     return [['init-socket']];
 });

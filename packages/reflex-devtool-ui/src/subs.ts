@@ -15,6 +15,7 @@ regSub('settings');
 regSub('showRenders', (settings) => settings.showRenders, () => [['settings']]);
 regSub('showBadges', (settings) => settings.showBadges, () => [['settings']]);
 regSub('showParams', (settings) => settings.showParams, () => [['settings']]);
+regSub('showTimestamps', (settings) => settings.showTimestamps, () => [['settings']]);
 
 // Filtered traces - filter by text and toggle visibility of render traces
 regSub('filteredTraces', (traces, filter, showRenders) => {
