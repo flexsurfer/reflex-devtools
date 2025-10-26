@@ -2,7 +2,7 @@ import { regSub } from "@flexsurfer/reflex";
 
 regSub('users');
 regSub('counter');
-regSub('is-loading');
+regSub('isLoading');
 
 function randomBlockingDelay() {
     const delay = Math.floor(Math.random() * 200) + 1; 

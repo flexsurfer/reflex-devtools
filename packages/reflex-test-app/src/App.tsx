@@ -7,7 +7,7 @@ function App() {
 
   const users = useSubscription<any>(['users'], "App");
   const counter = useSubscription<any>(['counter'], "App");
-  const isLoading = useSubscription<any>(['is-loading'], "App");
+  const isLoading = useSubscription<any>(['isLoading'], "App");
 
   const handleCounterIncrement = useCallback(() => {dispatch(['increment-counter']);}, []);
 
