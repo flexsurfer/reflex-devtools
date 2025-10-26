@@ -1,4 +1,4 @@
-import { registerTraceCb, getAppDb } from "@flexsurfer/reflex";
+import { registerTraceCb, getAppDb, getReactions, dispatch } from "@flexsurfer/reflex";
 
 export interface DevtoolsConfig {
   serverUrl?: string;
@@ -19,6 +19,38 @@ class DevtoolsClient {
   private connectedUIs = 0;
   private isTracingEnabled = false;
   private serverAvailable = false;
+  private reactionsCache = new Map<string, { version: number; isAlive: boolean }>();
+
+  private mapReactions(resetCache = false): Record<string, any> {
+    if (resetCache) {
+      this.reactionsCache.clear();
+    }
+    const reactions = getReactions();
+    if (!reactions) return {};
+    const changedReactions: Record<string, any> = {};
+
+    for (const [key, reaction] of reactions) {
+      if (reaction.isRoot) continue;
+
+      const currentVersion = reaction.getVersion();
+      const currentIsAlive = reaction.isAlive;
+      const cached = this.reactionsCache.get(key);
+     
+      // Send if reaction was alive but now dead
+      if (cached && cached.isAlive && !currentIsAlive) {
+        changedReactions[key] = "reflex-tool-sub-disposed";
+      }
+      // Send if this is a new reaction or version changed
+      else if (!cached || cached.version !== currentVersion) {
+        changedReactions[key] = reaction.getValue();
+      }
+
+       // Update cache with current state
+       this.reactionsCache.set(key, { version: currentVersion, isAlive: currentIsAlive });
+    }
+
+    return changedReactions;
+  }
 
   constructor(config: DevtoolsConfig) {
     this.config = {
@@ -130,12 +162,22 @@ class DevtoolsClient {
           component: 'Reflex',
           payload: getAppDb()
         });
+        this.sendEvent({
+          type: 'reflex-active-subs',
+          component: 'Reflex',
+          payload: this.mapReactions()
+        });
       });
 
       this.sendEvent({
         type: 'reflex-app-db',
         component: 'Reflex',
         payload: getAppDb()
+      });
+      this.sendEvent({
+        type: 'reflex-active-subs',
+        component: 'Reflex',
+        payload: this.mapReactions(true)
       });
     }
   }

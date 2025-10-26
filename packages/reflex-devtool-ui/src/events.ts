@@ -52,6 +52,20 @@ regEvent('update-db', ({ draftDb }, db: any) => {
     draftDb.db = db;
 });
 
+regEvent('update-active-subs', ({ draftDb }, activeSubs: any) => {
+    if (!draftDb.activeSubs) {
+        draftDb.activeSubs = {};
+    }
+
+    for (const [key, value] of Object.entries(activeSubs)) {
+        if (value === "reflex-tool-sub-disposed") {
+            delete draftDb.activeSubs[key];
+        } else {
+            draftDb.activeSubs[key] = value;
+        }
+    }
+});
+
 regEvent('clear-traces', ({ draftDb }) => {
     draftDb.traces = [];
     draftDb.selectedTrace = null;

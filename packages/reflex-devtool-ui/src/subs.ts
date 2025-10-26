@@ -3,6 +3,7 @@ import { TraceItem } from "./types/Trace";
 
 // Subscriptions for devtools state
 regSub('db');
+regSub('activeSubs');
 regSub('traces');
 regSub('isConnected');
 regSub('filter');
