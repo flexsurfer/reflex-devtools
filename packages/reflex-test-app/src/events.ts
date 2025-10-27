@@ -1,4 +1,4 @@
-import { regEffect, regEvent } from "@flexsurfer/reflex";
+import { regEffect, regEvent, NOW } from "@flexsurfer/reflex";
 
 // Event handlers
 regEvent('increment-counter', (coeffects) => {
@@ -33,9 +33,9 @@ regEvent('simulate-error', () => {
   throw new Error('This is a simulated error for testing');
 });
 
-regEvent('fake-event', () => {
-  return [['fake-effect']];
-});
+regEvent('fake-event', ({now}) => {
+  return [['fake-effect', now]];
+}, [[NOW]]);
 
 regEvent('test-event-with-bad-params', ({draftDb}, badPayload: any) => {
   draftDb.badPayload = badPayload;

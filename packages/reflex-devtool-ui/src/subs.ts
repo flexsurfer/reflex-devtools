@@ -4,6 +4,8 @@ import { TraceItem } from "./types/Trace";
 // Subscriptions for devtools state
 regSub('db');
 regSub('activeSubs');
+regSub('handlerKeys');
+regSub('handlerUsage');
 regSub('traces');
 regSub('isConnected');
 regSub('filter');

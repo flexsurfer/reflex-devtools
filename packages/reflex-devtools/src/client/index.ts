@@ -1,4 +1,4 @@
-import { registerTraceCb, getAppDb, getReactions, dispatch } from "@flexsurfer/reflex";
+import { registerTraceCb, getAppDb, getReactions, dispatch, getHandlers, removeTraceCb } from "@flexsurfer/reflex";
 
 export interface DevtoolsConfig {
   serverUrl?: string;
@@ -19,6 +19,33 @@ class DevtoolsClient {
   private isTracingEnabled = false;
   private serverAvailable = false;
   private reactionsCache = new Map<string, { version: number; isAlive: boolean }>();
+
+  constructor(config: DevtoolsConfig) {
+    this.config = {
+      enabled: true,
+      serverUrl: 'localhost:4000',
+      ...config,
+    };
+  }
+
+  async init(): Promise<void> {
+
+    if (!this.config.enabled) return;
+
+    this.startTracing();
+
+    this.serverAvailable = await this.checkServerAvailability();
+    if (!this.serverAvailable) {
+      console.warn('[Reflex Devtools] Server not available, disabling devtools');
+      this.stopTracing();
+      return;
+    }
+
+    try {
+      await this.connectWebSocket();
+    } catch (error) {
+    }
+  }
 
   private mapReactions(resetCache = false): Record<string, any> {
     if (resetCache) {
@@ -51,31 +78,13 @@ class DevtoolsClient {
     return changedReactions;
   }
 
-  constructor(config: DevtoolsConfig) {
-    this.config = {
-      enabled: true,
-      serverUrl: 'localhost:4000',
-      ...config,
+  private getHandlerKeys(kindToIdToHandler: Record<string, Record<string, any>>): Record<string, string[]> {
+    return {
+      event: Object.keys(kindToIdToHandler.event || {}),
+      fx: Object.keys(kindToIdToHandler.fx || {}).filter(key => !['dispatch', 'dispatch-later'].includes(key)),
+      cofx: Object.keys(kindToIdToHandler.cofx || {}).filter(key => !['now', 'random'].includes(key)),
+      sub: Object.keys(kindToIdToHandler.sub || {})
     };
-  }
-
-  async init(): Promise<void> {
-
-    if (!this.config.enabled) return;
-
-    this.startTracing();
-
-    this.serverAvailable = await this.checkServerAvailability();
-    if (!this.serverAvailable) {
-      console.warn('[Reflex Devtools] Server not available, disabling devtools');
-      this.stopTracing();
-      return;
-    }
-
-    try {
-      await this.connectWebSocket();
-    } catch (error) {
-    }
   }
 
   private async checkServerAvailability(): Promise<boolean> {
@@ -177,12 +186,17 @@ class DevtoolsClient {
       component: 'Reflex',
       payload: this.mapReactions(true)
     });
+    this.sendEvent({
+      type: 'reflex-handler-keys',
+      component: 'Reflex',
+      payload: this.getHandlerKeys(getHandlers())
+    });
   }
 
   private stopTracing(): void {
     if (this.isTracingEnabled) {
       this.isTracingEnabled = false;
-      registerTraceCb('reflex-devtool', () => {});
+      removeTraceCb('reflex-devtool');
     }
   }
 

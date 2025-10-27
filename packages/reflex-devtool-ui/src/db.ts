@@ -7,5 +7,7 @@ initAppDb({
     isConnected: false,
     filter: '',
     selectedTrace: null,
-    settings: loadSettings()
+    settings: loadSettings(),
+    handlerKeys: null,
+    handlerUsage: {}
 }); 

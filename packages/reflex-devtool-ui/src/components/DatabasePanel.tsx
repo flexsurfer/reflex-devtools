@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useSubscription } from '@flexsurfer/reflex';
 import { JsonViewer } from './ui/JsonViewer';
+import HandlersTable from './HandlersTable';
 
 export default function DatabasePanel() {
     const db = useSubscription(['db']);
     const activeSubs = useSubscription(['activeSubs']);
-    const [viewMode, setViewMode] = useState<'database' | 'subscriptions'>('database');
+    const [viewMode, setViewMode] = useState<'database' | 'subscriptions' | 'handlers'>('database');
 
     return (
         <div className="flex flex-col bg-base-100 h-full overflow-hidden">
@@ -22,6 +23,12 @@ export default function DatabasePanel() {
                 >
                     Subscriptions
                 </button>
+                <button
+                    onClick={() => setViewMode('handlers')}
+                    className={`btn btn-xs ${viewMode === 'handlers' ? 'btn-primary' : 'btn-ghost'}`}
+                >
+                    Handlers
+                </button>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -34,6 +41,8 @@ export default function DatabasePanel() {
                     ) : (
                         <JsonViewer src={db} name="db" />
                     )
+                ) : viewMode === 'handlers' ? (
+                    <HandlersTable />
                 ) : (
                     !activeSubs ? (
                         <div className="flex flex-col items-center justify-center h-full text-base-content/60 text-center">

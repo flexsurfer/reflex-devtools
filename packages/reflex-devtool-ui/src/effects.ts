@@ -26,6 +26,8 @@ const connectWebSocket = () => {
                 dispatch(['update-db', data.payload]);
             } else if (data.type === 'reflex-active-subs') {
                 dispatch(['update-active-subs', data.payload]);
+            } else if (data.type === 'reflex-handler-keys') {
+                dispatch(['update-handler-keys', data.payload]);
             }
         } catch (error) {
             console.error('Error parsing event:', error);

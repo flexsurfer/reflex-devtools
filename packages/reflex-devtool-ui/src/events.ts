@@ -3,6 +3,66 @@ import { applyPatches } from "immer";
 import type { Badge, Trace, TraceItem } from './types/Trace';
 
 regEvent('add-traces', ({ draftDb }, traces: Trace[]) => {
+    // Initialize handlerUsage if not exists
+    if (!draftDb.handlerUsage) {
+        draftDb.handlerUsage = {};
+    }
+
+    // Track handler executions
+    traces.forEach(trace => {
+        const opType = trace.opType;
+        const operation = trace.operation;
+
+        if (opType) {
+            // Track different handler types based on opType and tags
+            const handlerOperations: Array<{ type: string; operation: string }> = [];
+
+            if (opType === 'event') {
+                // For events, track the event itself and any effects/coeffects in tags
+                // Always track the event
+                if (operation) {
+                    handlerOperations.push({ type: 'event', operation });
+                }
+
+                // Track effects if present
+                if (trace.tags?.effects?.length > 0) {
+                    trace.tags!.effects.forEach(([effectName]: [string, number]) => {
+                        handlerOperations.push({ type: 'fx', operation: effectName });
+                    });
+                }
+
+                // Track coeffects if present
+                if (trace.tags?.coeffects?.length > 0) {
+                    trace.tags!.coeffects.forEach(([cofxName]: [string, number]) => {
+                        handlerOperations.push({ type: 'cofx', operation: cofxName });
+                    });
+                }
+            } else {
+                // For non-event traces, determine handler type and operations
+                let handlerType: string | null = null;
+
+                if (opType === 'sub/run') {
+                    handlerType = 'sub';
+                }
+
+                if (handlerType && operation) {
+                    handlerOperations.push({ type: handlerType, operation });
+                }
+            }
+
+            // Apply all handler operations
+            handlerOperations.forEach(({ type, operation }) => {
+                if (!draftDb.handlerUsage[type]) {
+                    draftDb.handlerUsage[type] = {};
+                }
+                if (!draftDb.handlerUsage[type][operation]) {
+                    draftDb.handlerUsage[type][operation] = 0;
+                }
+                draftDb.handlerUsage[type][operation]++;
+            });
+        }
+    });
+
     // Collect all patches from traces to apply to the client app DB
     const allPatches = traces
         .filter(trace => trace.tags?.patches?.length > 0)
@@ -77,9 +137,14 @@ regEvent('update-active-subs', ({ draftDb }, activeSubs: any) => {
     }
 });
 
+regEvent('update-handler-keys', ({ draftDb }, handlerKeys: any) => {
+    draftDb.handlerKeys = handlerKeys;
+});
+
 regEvent('clear-traces', ({ draftDb }) => {
     draftDb.traces = [];
     draftDb.selectedTrace = null;
+    draftDb.handlerUsage = {};
 });
 
 regEvent('set-connected', ({ draftDb }, isConnected: boolean) => {
