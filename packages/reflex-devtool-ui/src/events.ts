@@ -1,6 +1,9 @@
 import { current, regEvent } from "@flexsurfer/reflex";
-import { applyPatches } from "immer";
+import { applyPatches, enablePatches } from "immer";
 import type { Badge, Trace, TraceItem } from './types/Trace';
+
+// Enable Immer patches plugin for applyPatches functionality
+enablePatches();
 
 regEvent('add-traces', ({ draftDb }, traces: Trace[]) => {
     // Initialize handlerUsage if not exists
