@@ -107,3 +107,23 @@ regEvent('init-socket', () => {
 regEvent('set-selected-trace', ({ draftDb }, trace: TraceItem) => {
     draftDb.selectedTrace = trace;
 });
+
+regEvent('dispatch-to-client', (_ctx, eventName: string, ...params: any[]) => {
+    return [['send-dispatch-to-client', { eventName, params }]];
+});
+
+regEvent('open-dispatch-modal', ({ draftDb }, eventName: string = 'event-id', initialParams: any[] = []) => {
+    draftDb.dispatchModalOpenState = {
+        isOpen: true,
+        eventName,
+        initialParams
+    };
+});
+
+regEvent('close-dispatch-modal', ({ draftDb }) => {
+    draftDb.dispatchModalOpenState = {
+        isOpen: false,
+        eventName: 'event-id',
+        initialParams: []
+    };
+});

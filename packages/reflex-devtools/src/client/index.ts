@@ -141,6 +141,12 @@ class DevtoolsClient {
       else if (newUICount === 0) {
         this.stopTracing();
       }
+    } else if (message.type === 'dispatch-to-client') {
+      // Handle dispatch request from devtools UI
+      const { eventName, params } = message.payload;
+      
+      // Dispatch the event in the client app with all parameters
+      dispatch([eventName, ...params]);
     }
   }
 

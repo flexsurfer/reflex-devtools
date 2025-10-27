@@ -11,6 +11,8 @@ regSub('splitPosition');
 regSub('isDragging');
 regSub('selectedTrace');
 regSub('settings');
+// Dispatch modal state
+regSub('dispatchModalOpenState'); 
 
 // Settings
 regSub('showRenders', (settings) => settings.showRenders, () => [['settings']]);

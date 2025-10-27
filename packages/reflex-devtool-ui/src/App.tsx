@@ -4,6 +4,7 @@ import DatabasePanel from './components/DatabasePanel';
 import TraceDetailsPanel from './components/trace/TraceDetailsPanel';
 import Splitter from './components/ui/Splitter';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { DispatchEventModal } from './components/ui/DispatchEventModal';
 
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
             </div>
           </div>
         </main>
+
+        <DispatchEventModal />
       </div>
     </ThemeProvider>
   );

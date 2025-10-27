@@ -123,6 +123,19 @@ export class DevtoolsServer {
           timestamp: Date.now()
         }));
 
+        ws.on('message', (data) => {
+          try {
+            const message = JSON.parse(data.toString());
+            // Handle messages from UI (e.g., dispatch-to-client)
+            if (message.type === 'dispatch-to-client') {
+              // Forward the dispatch request to all SDK clients
+              this.broadcastToSDK(message);
+            }
+          } catch (error) {
+            console.error('[Reflex Devtools] Error parsing UI message:', error);
+          }
+        });
+
         ws.on('close', () => {
           console.log('[Reflex Devtools] UI client disconnected');
           this.uiClients.delete(ws);
@@ -176,6 +189,23 @@ export class DevtoolsServer {
         }
       } else {
         this.uiClients.delete(client);
+      }
+    });
+  }
+
+  private broadcastToSDK(message: any): void {
+    const messageStr = JSON.stringify(message);
+
+    this.sdkClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(messageStr);
+        } catch (error) {
+          console.error('[Reflex Devtools] Error sending to SDK client:', error);
+          this.sdkClients.delete(client);
+        }
+      } else {
+        this.sdkClients.delete(client);
       }
     });
   }
