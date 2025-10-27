@@ -21,7 +21,7 @@ export default function EventFilter() {
             </svg>
             <input
                 type="text"
-                placeholder="event name..."
+                placeholder="event-id..."
                 value={filter}
                 onChange={handleFilterChange}
                 className="grow"

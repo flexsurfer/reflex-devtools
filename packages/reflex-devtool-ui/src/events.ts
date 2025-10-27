@@ -1,7 +1,18 @@
 import { current, regEvent } from "@flexsurfer/reflex";
+import { applyPatches } from "immer";
 import type { Badge, Trace, TraceItem } from './types/Trace';
 
 regEvent('add-traces', ({ draftDb }, traces: Trace[]) => {
+    // Collect all patches from traces to apply to the client app DB
+    const allPatches = traces
+        .filter(trace => trace.tags?.patches?.length > 0)
+        .flatMap(trace => trace.tags!.patches!);
+
+    // Apply patches to the client app DB copy if we have patches
+    if (allPatches.length > 0 && draftDb.db) {
+        draftDb.db = applyPatches(draftDb.db, allPatches);
+    }
+
     const { eventTraceItems, renderTraceItem, badgesMap } = traces.reduce((acc, trace) => {
         if (trace.opType === 'event') {
             const badges: Badge[] = [];

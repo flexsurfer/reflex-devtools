@@ -16,7 +16,6 @@ class DevtoolsClient {
   private config: DevtoolsConfig;
   private ws: WebSocket | null = null;
   private isConnected = false;
-  private connectedUIs = 0;
   private isTracingEnabled = false;
   private serverAvailable = false;
   private reactionsCache = new Map<string, { version: number; isAlive: boolean }>();
@@ -130,15 +129,14 @@ class DevtoolsClient {
   private handleServerMessage(message: any): void {
     if (message.type === 'ui-connection-status') {
       const newUICount = message.payload.connectedUIs;
-      const previousUICount = this.connectedUIs;
-      this.connectedUIs = newUICount;
+
 
       // Start tracing when first UI connects
-      if (previousUICount === 0 && newUICount > 0) {
+      if (newUICount > 0) {
         this.startTracing();
       }
       // Stop tracing when last UI disconnects
-      else if (newUICount === 0) {
+      else {
         this.stopTracing();
       }
     } else if (message.type === 'dispatch-to-client') {
@@ -161,36 +159,30 @@ class DevtoolsClient {
           component: 'Reflex',
           payload: traces
         });
-        // TODO: we already send patches with events, so we could have immer object in the UI and just patch it,
-        // so we don't need to send entire app db here each time
-        this.sendEvent({
-          type: 'reflex-app-db',
-          component: 'Reflex',
-          payload: getAppDb()
-        });
         this.sendEvent({
           type: 'reflex-active-subs',
           component: 'Reflex',
           payload: this.mapReactions()
         });
       });
-
-      this.sendEvent({
-        type: 'reflex-app-db',
-        component: 'Reflex',
-        payload: getAppDb()
-      });
-      this.sendEvent({
-        type: 'reflex-active-subs',
-        component: 'Reflex',
-        payload: this.mapReactions(true)
-      });
     }
+
+    this.sendEvent({
+      type: 'reflex-app-db',
+      component: 'Reflex',
+      payload: getAppDb()
+    });
+    this.sendEvent({
+      type: 'reflex-active-subs',
+      component: 'Reflex',
+      payload: this.mapReactions(true)
+    });
   }
 
   private stopTracing(): void {
     if (this.isTracingEnabled) {
       this.isTracingEnabled = false;
+      registerTraceCb('reflex-devtool', () => {});
     }
   }
 
