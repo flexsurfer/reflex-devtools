@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { useSubscription } from '@flexsurfer/reflex';
+import SortIndicator from './ui/SortIndicator';
+
+type SortField = 'handlerId' | 'runs';
+type SortDirection = 'asc' | 'desc';
 
 export default function HandlersTable() {
     const handlerKeys = useSubscription<{ event: string[]; fx: string[]; cofx: string[]; sub: string[]; } | null>(['handlerKeys']);
@@ -34,7 +38,33 @@ export default function HandlersTable() {
     }
 
     const [activeTab, setActiveTab] = useState(activeHandlerTypes[0].key);
+    const [sortField, setSortField] = useState<SortField>('handlerId');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const currentHandlerType = activeHandlerTypes.find(type => type.key === activeTab) || activeHandlerTypes[0];
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    // Sort the handler items based on current sort field and direction
+    const sortedItems = [...currentHandlerType.items].sort((a, b) => {
+        let comparison = 0;
+
+        if (sortField === 'handlerId') {
+            comparison = a.localeCompare(b);
+        } else if (sortField === 'runs') {
+            const aRuns = handlerUsage?.[currentHandlerType.key]?.[a] || 0;
+            const bRuns = handlerUsage?.[currentHandlerType.key]?.[b] || 0;
+            comparison = aRuns - bRuns;
+        }
+
+        return sortDirection === 'asc' ? comparison : -comparison;
+    });
 
     return (
         <div className="flex flex-col h-full">
@@ -58,12 +88,32 @@ export default function HandlersTable() {
                         <table className="table table-zebra w-full table-xs">
                             <thead className="bg-base-200">
                                 <tr>
-                                    <th className="text-left text-sm font-medium text-base-content">Handler ID</th>
-                                    <th className="text-right text-sm font-medium text-base-content">Runs</th>
+                                    <th className="text-left text-sm font-medium text-base-content">
+                                        <button
+                                            className="flex items-center gap-1 hover:text-base-content/80 cursor-pointer"
+                                            onClick={() => handleSort('handlerId')}
+                                        >
+                                            Handler ID
+                                            {sortField === 'handlerId' && (
+                                                <SortIndicator direction={sortDirection} />
+                                            )}
+                                        </button>
+                                    </th>
+                                    <th className="text-right text-sm font-medium text-base-content">
+                                        <button
+                                            className="flex items-center justify-end gap-1 hover:text-base-content/80 cursor-pointer w-full"
+                                            onClick={() => handleSort('runs')}
+                                        >
+                                            Runs
+                                            {sortField === 'runs' && (
+                                                <SortIndicator direction={sortDirection} />
+                                            )}
+                                        </button>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentHandlerType.items.map((handlerId, index) => {
+                                {sortedItems.map((handlerId, index) => {
                                     const usageCount = handlerUsage?.[currentHandlerType.key]?.[handlerId] || 0;
                                     return (
                                         <tr key={index}>

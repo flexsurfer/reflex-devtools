@@ -9,5 +9,6 @@ initAppDb({
     selectedTrace: null,
     settings: loadSettings(),
     handlerKeys: null,
-    handlerUsage: {}
+    handlerUsage: {},
+    dispatchModalOpenState: {}
 }); 
