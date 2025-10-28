@@ -7,11 +7,21 @@ export function DispatchEventModal() {
         eventName: string;
         initialParams: any[];
     } | undefined;
+    const handlerKeys = useSubscription<{ event: string[]; fx: string[]; cofx: string[]; sub: string[]; } | null>(['handlerKeys']);
 
-    const [eventName, setEventName] = useState(dispatchModalState?.eventName || 'event');
+    const [eventName, setEventName] = useState(dispatchModalState?.eventName || '');
     const [eventParams, setEventParams] = useState<any[]>(dispatchModalState?.initialParams || []);
     const [paramTexts, setParamTexts] = useState<string[]>([]);
     const [paramErrors, setParamErrors] = useState<(string | null)[]>([]);
+
+    // Combobox state
+    const [isComboboxOpen, setIsComboboxOpen] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+
+    // Filter and sort event suggestions based on current input
+    const filteredEvents = handlerKeys?.event?.filter(event =>
+        event.toLowerCase().includes(eventName.toLowerCase())
+    ).sort() || [];
 
     useEffect(() => {
         if (dispatchModalState?.isOpen) {
@@ -32,6 +42,58 @@ export function DispatchEventModal() {
     const handleClose = useCallback(() => {
         dispatch(['close-dispatch-modal']);
     }, []);
+
+    // Combobox handlers
+    const handleEventInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setEventName(e.target.value);
+        setIsComboboxOpen(true);
+        setHighlightedIndex(-1);
+    }, []);
+
+    const handleEventInputFocus = useCallback(() => {
+        setIsComboboxOpen(true);
+    }, []);
+
+    const handleEventInputBlur = useCallback(() => {
+        // Delay closing to allow for selection
+        setTimeout(() => setIsComboboxOpen(false), 150);
+    }, []);
+
+    const handleEventSelect = useCallback((selectedEvent: string) => {
+        setEventName(selectedEvent);
+        setIsComboboxOpen(false);
+        setHighlightedIndex(-1);
+    }, []);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!isComboboxOpen || filteredEvents.length === 0) return;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                setHighlightedIndex(prev =>
+                    prev < filteredEvents.length - 1 ? prev + 1 : prev
+                );
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1);
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (highlightedIndex >= 0 && highlightedIndex < filteredEvents.length) {
+                    handleEventSelect(filteredEvents[highlightedIndex]);
+                } else {
+                    setIsComboboxOpen(false);
+                }
+                break;
+            case 'Escape':
+                e.preventDefault();
+                setIsComboboxOpen(false);
+                setHighlightedIndex(-1);
+                break;
+        }
+    }, [isComboboxOpen, filteredEvents, highlightedIndex, handleEventSelect]);
 
     const handleParamTextChange = useCallback((index: number, text: string) => {
         const newTexts = [...paramTexts];
@@ -94,13 +156,37 @@ export function DispatchEventModal() {
                         <label className="label">
                             <span className="label-text font-semibold">Event ID</span>
                         </label>
-                        <input
-                            type="text"
-                            className="input input-bordered w-full"
-                            value={eventName}
-                            onChange={(e) => setEventName(e.target.value)}
-                            placeholder="event-name"
-                        />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                className="input input-bordered w-full"
+                                value={eventName}
+                                onChange={handleEventInputChange}
+                                onFocus={handleEventInputFocus}
+                                onBlur={handleEventInputBlur}
+                                onKeyDown={handleKeyDown}
+                                placeholder="event-id"
+                            />
+                            {/* Dropdown suggestions */}
+                            {isComboboxOpen && filteredEvents.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-md shadow-lg max-h-40 overflow-auto">
+                                    {filteredEvents.map((event, index) => (
+                                        <div
+                                            key={event}
+                                            className={`text-sm px-3 py-2 cursor-pointer ${
+                                                index === highlightedIndex
+                                                    ? 'bg-primary text-primary-content'
+                                                    : 'hover:bg-base-200'
+                                            }`}
+                                            onClick={() => handleEventSelect(event)}
+                                            onMouseEnter={() => setHighlightedIndex(index)}
+                                        >
+                                            {event}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Event Parameters Editor */}

@@ -202,7 +202,7 @@ regEvent('open-dispatch-modal', ({ draftDb }, eventName: string = 'event-id', in
 regEvent('close-dispatch-modal', ({ draftDb }) => {
     draftDb.dispatchModalOpenState = {
         isOpen: false,
-        eventName: 'event-id',
+        eventName: '',
         initialParams: []
     };
 });

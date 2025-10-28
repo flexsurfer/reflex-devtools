@@ -16,7 +16,7 @@ export default function TracesControls() {
     }, [isPanelOpen]);
 
     const handleDispatchClick = useCallback(() => {
-        dispatch(['open-dispatch-modal', 'event-id', []]);
+        dispatch(['open-dispatch-modal', '', []]);
     }, []);
 
     return (
