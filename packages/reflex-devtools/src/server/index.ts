@@ -283,10 +283,12 @@ export class DevtoolsServer {
 
         this.sdkClients.add(ws);
 
-        // Send current UI connection count to newly connected SDK client
+        // Send connection status to newly connected SDK client
+        // If MCP is enabled, treat it as if there's always a UI connected to trigger state sending
+        const connectedUIs = this.config.enableMCP ? 1 : this.uiClients.size;
         ws.send(JSON.stringify({
           type: 'ui-connection-status',
-          payload: { connectedUIs: this.uiClients.size },
+          payload: { connectedUIs },
           timestamp: Date.now()
         }));
         
