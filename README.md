@@ -25,6 +25,7 @@ Reflex DevTools is a powerful debugging toolkit for applications built with the 
 - **🔄 Real-time Event Tracing** - Watch events and state changes as they happen
 - **🔥 Real-time Reactions and Render Tracing** - Watch all reactions being created and run, and rendering processes
 - **⏱ Performance Profiling** - Analyze events and reactions times and bottlenecks in real-time
+- **🤖 AI-Powered Debugging** - MCP integration enables AI assistants like Claude or Cursor to inspect traces and dispatch events
 - **🎨 Beautiful Dashboard** - Clean, modern UI with dark/light theme support
 - **📱 React & React Native Support** - Works seamlessly with both platforms
 - **⚡ Zero Configuration** - Get started with just two lines of code
@@ -108,6 +109,61 @@ enableDevtools({
   enabled: process.env.NODE_ENV === 'development'
 });
 ```
+---
+
+## 🤖 AI-Powered Debugging with MCP
+
+Reflex DevTools now supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io), enabling AI assistants like Claude and Cursor to directly inspect your application traces and dispatch events!
+
+### Quick Setup
+
+1. **Install the MCP server:**
+   ```bash
+   npm install -g @flexsurfer/reflex-devtools-mcp
+   ```
+
+2. **Start DevTools server with MCP support:**
+   ```bash
+   npx reflex-devtools --mcp
+   ```
+   **Important:** The `--mcp` flag enables trace storage. Without it, MCP will not work.
+
+4. **Configure your AI client:**
+
+   **For Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+   ```json
+   {
+     "mcpServers": {
+       "reflex-devtools": {
+         "command": "npx",
+         "args": ["reflex-devtools-mcp"],
+         "env": {}
+       }
+     }
+   }
+   ```
+
+   **For Cursor IDE** (Cursor Settings → `settings.json`):
+   ```json
+   {
+     "mcp.servers": {
+       "reflex-devtools": {
+         "command": "npx",
+         "args": ["reflex-devtools-mcp"],
+         "env": {}
+       }
+     }
+   }
+   ```
+
+5. **Restart your AI client** and ask questions like:
+   - "What's the current app state and what user actions led to this state?"
+   - "Navigate to the user profile page and select the first item in the list"
+   - "Find slow event handlers that take longer than 100ms to execute"
+   - "Show me active subscriptions that might be causing unnecessary re-renders"
+
+📚 **[Full MCP Documentation →](packages/reflex-devtools-mcp/README.md)**
+
 ---
 
 ## 🔧 Configuration Options
@@ -198,13 +254,16 @@ This will start:
 
 ```
 packages/
-├── reflex-devtools/     # Main package (client SDK + server)
-│   ├── src/client/      # Client SDK for apps
-│   ├── src/server/      # DevTools server
-│   └── src/cli.ts       # CLI entry point
-├── reflex-devtool-ui/   # Web dashboard
-│   └── src/            # React components
-└── reflex-test-app/     # Example app for testing
+├── reflex-devtools/        # Main package (client SDK + server)
+│   ├── src/client/         # Client SDK for apps
+│   ├── src/server/         # DevTools server
+│   └── src/cli.ts          # CLI entry point
+├── reflex-devtools-mcp/    # MCP server for AI assistants
+│   ├── src/tools/          # MCP tool implementations
+│   └── src/cli.ts          # MCP CLI entry point
+├── reflex-devtool-ui/      # Web dashboard
+│   └── src/                # React components
+└── reflex-test-app/        # Example app for testing
 ```
 
 ### Development Commands
@@ -213,17 +272,20 @@ packages/
 # Build all packages
 pnpm build
 
+# Build specific packages
+pnpm build:devtools    # Build main devtools package
+pnpm build:ui          # Build UI dashboard
+pnpm build:mcp         # Build MCP server
+
 # Run tests
 pnpm test
 
-# Start only the UI in development
-pnpm dev:ui
-
-# Start only the server
-pnpm dev:server
-
-# Start only the test app
-pnpm dev:testapp
+# Start development servers
+pnpm dev:ui            # Start UI in development mode
+pnpm dev:server        # Start DevTools server (use --mcp for MCP support)
+pnpm dev:testapp       # Start test app
+pnpm dev:mcp           # Start MCP server in dev mode
+pnpm start:mcp         # Start MCP server (production)
 
 # Clean all builds
 pnpm clean
