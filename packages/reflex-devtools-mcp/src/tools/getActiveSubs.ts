@@ -12,7 +12,7 @@ export interface GetActiveSubsParams {
 export function getActiveSubsTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_active_subs',
-    description: 'View currently active subscription reactions in the Reflex application. Subscriptions are reactive queries that automatically update when their dependencies change.',
+    description: 'Get currently active calculated subscriptions in the Reflex application. For root subscriptions use get_app_state instead.',
     inputSchema: {
       type: 'object',
       properties: {

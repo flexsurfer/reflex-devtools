@@ -12,7 +12,7 @@ export interface GetAppStateParams {
 export function getAppStateTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_app_state',
-    description: 'Retrieve the current application database state. This is the central state managed by Reflex, equivalent to the app-db in re-frame.',
+    description: 'Retrieve the current application state. This is the central state managed by Reflex, equivalent to the app-db in re-frame. This does NOT include computed subscription values - use get_active_subs for those.',
     inputSchema: {
       type: 'object',
       properties: {

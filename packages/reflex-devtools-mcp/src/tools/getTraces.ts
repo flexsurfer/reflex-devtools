@@ -15,7 +15,7 @@ export interface GetTracesParams {
 export function getTracesTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_traces',
-    description: 'Retrieve execution traces from the Reflex application. Traces include events, subscriptions, and render cycles with timing information.',
+    description: 'Retrieve execution traces from the Reflex application. Traces include events, subscription operations (create/run/dispose), and render cycles with timing information. To get the current subscription values, use get_active_subs and operation.',
     inputSchema: {
       type: 'object',
       properties: {
