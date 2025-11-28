@@ -55,7 +55,7 @@ export function getAppStateTool(apiClient: DevToolsAPIClient) {
                   {
                     type: 'text',
                     text: JSON.stringify({
-                      error: `Path "${params.path}" not found in state`
+                      error: `Path "${params.path}" not found in state. This might be a calculated subscription value. Try using get_active_subs instead.`
                     }, null, 2)
                   }
                 ],
