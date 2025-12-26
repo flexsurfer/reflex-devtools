@@ -8,6 +8,9 @@ type SortDirection = 'asc' | 'desc';
 export default function HandlersTable() {
     const handlerKeys = useSubscription<{ event: string[]; fx: string[]; cofx: string[]; sub: string[]; } | null>(['handlerKeys']);
     const handlerUsage = useSubscription<Record<string, Record<string, number>> | null>(['handlerUsage']);
+    const [activeTab, setActiveTab] = useState<string>('event');
+    const [sortField, setSortField] = useState<SortField>('handlerId');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
     if (!handlerKeys) {
         return (
@@ -36,10 +39,6 @@ export default function HandlersTable() {
             </div>
         );
     }
-
-    const [activeTab, setActiveTab] = useState(activeHandlerTypes[0].key);
-    const [sortField, setSortField] = useState<SortField>('handlerId');
-    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
     const currentHandlerType = activeHandlerTypes.find(type => type.key === activeTab) || activeHandlerTypes[0];
 
     const handleSort = (field: SortField) => {
@@ -73,7 +72,7 @@ export default function HandlersTable() {
                 {activeHandlerTypes.map(({ key, label, items }) => (
                     <a
                         key={key}
-                        className={`tab ${activeTab === key ? 'tab-active' : ''}`}
+                        className={`tab ${currentHandlerType.key === key ? 'tab-active' : ''}`}
                         onClick={() => setActiveTab(key)}
                     >
                         {label} ({items.length})

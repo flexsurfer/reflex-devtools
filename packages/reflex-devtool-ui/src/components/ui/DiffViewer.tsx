@@ -1,4 +1,4 @@
-import ReactJson from '@microlink/react-json-view';
+import { ObjectView, themeOneDark, themeGitHubLight, extendTheme, ResolverFn } from 'react-obj-view';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface Patch {
@@ -17,6 +17,31 @@ interface DiffLine {
     path: string;
     value: any;
 }
+
+const darkTheme = extendTheme(themeOneDark, {
+    background: 'transparent',
+});
+
+const lightTheme = extendTheme(themeGitHubLight, {
+    background: 'transparent',
+});
+
+// Custom resolver for Set - renders as plain array of values
+const setResolver: ResolverFn<Set<any>> = (set, _cb, next) => {
+    // Delegate to array renderer - shows values directly without key/value wrapper
+    next(Array.from(set));
+};
+
+// Custom resolver for Map - renders as plain array of [key, value] entries
+const mapResolver: ResolverFn<Map<any, any>> = (map, _cb, next) => {
+    // Delegate to array renderer - shows entries as [key, value] tuples
+    next(Array.from(map.entries()));
+};
+
+const customResolver = new Map<any, ResolverFn>([
+    [Set, setResolver],
+    [Map, mapResolver],
+]);
 
 function patchesToDiffLines(patches: Patch[], reversePatches?: Patch[]): DiffLine[] {
     const lines: DiffLine[] = [];
@@ -54,36 +79,36 @@ function patchesToDiffLines(patches: Patch[], reversePatches?: Patch[]): DiffLin
     return lines;
 }
 
-function renderValue(value: any, theme: string) {
+function ValueRenderer({ value, theme }: { value: any; theme: 'light' | 'dark' }) {
     // For primitive values (string, number, boolean) or null/undefined, render as plain text
     if (value === null || value === undefined ||
         typeof value === 'string' ||
         typeof value === 'number' ||
         typeof value === 'boolean') {
         const displayValue = value === null ? 'null' :
-                           value === undefined ? 'undefined' :
-                           typeof value === 'string' ? `"${value}"` :
-                           String(value);
+            value === undefined ? 'undefined' :
+                typeof value === 'string' ? `"${value}"` :
+                    String(value);
         return <span className="font-mono text-sm">{displayValue}</span>;
     }
+    // For objects and arrays, use ObjectView with compact settings
+    const objectTheme = extendTheme(theme === 'dark' ? darkTheme : lightTheme, {
+        fontSize: '12px',
+        padding: '2px 0',
+        lineHeight: '1.2',
+    });
 
-    // For objects and arrays, use ReactJson
     return (
-        <ReactJson
-            src={value}
-            name={false}
-            theme={theme === "dark" ? "codeschool" : "rjv-default"}
-            collapsed={true}
-            sortKeys={true}
-            displayDataTypes={false}
-            displayObjectSize={true}
-            enableClipboard={false}
-            quotesOnKeys={false}
-            style={{
-                fontSize: '12px',
-                backgroundColor: 'transparent',
-                padding: '2px 0',
-            }}
+        <ObjectView
+            valueGetter={() => value}
+            expandLevel={1}
+            name={""}
+            highlightUpdate={false}
+            stickyPathHeaders={false}
+            objectGroupSize={100}
+            arrayGroupSize={100}
+            style={objectTheme}
+            resolver={customResolver}
         />
     );
 }
@@ -107,7 +132,7 @@ export function DiffViewer({ patches, reversePatches }: DiffViewerProps) {
                             <span className="font-mono text-sm flex-shrink-0">{symbol}</span>
                             <span className="font-mono text-sm flex-shrink-0">{line.path}:</span>
                             <div className="flex-1 min-w-0">
-                                {renderValue(line.value, theme)}
+                                <ValueRenderer value={line.value} theme={theme} />
                             </div>
                         </div>
                     );

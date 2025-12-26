@@ -1,4 +1,5 @@
 import { registerTraceCb, getAppDb, getReactions, dispatch, getHandlers, removeTraceCb } from "@flexsurfer/reflex";
+import { reflexReplacer } from "../serialization.js";
 
 export interface DevtoolsConfig {
   serverUrl?: string;
@@ -200,77 +201,15 @@ class DevtoolsClient {
     }
   }
 
-  private safeStringify(obj: any): string {
-    
-    const replacer = (_key: string, value: any): any => {
-      // Handle primitive types that are serializable
-      if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
-        return value;
-      }
-
-      // Handle undefined
-      if (value === undefined) {
-        return 'undefined';
-      }
-
-      // Handle functions
-      if (typeof value === 'function') {
-        return '[Function]';
-      }
-
-      // Handle symbols
-      if (typeof value === 'symbol') {
-        return '[Symbol]';
-      }
-
-      // Handle BigInt
-      if (typeof value === 'bigint') {
-        return `[BigInt: ${value.toString()}]`;
-      }
-
-      // Handle objects
-      if (typeof value === 'object') {
-
-        // Handle specific object types
-        if (value instanceof Map) {
-          return Array.from(value.entries()) ;
-        }
-        if (value instanceof Set) {
-          return Array.from(value) ;
-        }
-        if (value instanceof WeakMap) {
-          return '[WeakMap]';
-        }
-        if (value instanceof WeakSet) {
-          return '[WeakSet]';
-        }
-  
-        if (value instanceof Error) {
-          return {
-            '[Error]': {
-              name: value.name,
-              message: value.message,
-              stack: value.stack
-            }
-          };
-        }
-
-        // For plain objects and arrays, continue recursion
-        return value;
-      }
-
-      // Fallback for any other type
-      return `[${typeof value}]`;
-    };
-
+  private serializeEventData(obj: any): string {
     try {
-      return JSON.stringify(obj, replacer);
+      return JSON.stringify(obj, reflexReplacer);
     } catch (error) {
       console.error('[Reflex Devtools] Error serializing object:', error);
       if (error instanceof Error && error.message.includes("Cannot perform 'get' on a proxy that has been revoked")) {
         console.warn('[Reflex Devtools] ⚠️ Important: When passing data from draftDb to effects, always use the current() function to get the current (final) value. The draftDb object is an Immer draft proxy that will be finalized after the event completes, so passing draftDb data directly to effects will result in the empty proxy object.');
       }
-      return '[Serialization Error]';
+      return JSON.stringify({ __reflex_type: 'SerializationError', error: 'Serialization failed' });
     }
   }
 
@@ -282,7 +221,7 @@ class DevtoolsClient {
       timestamp: event.timestamp || Date.now()
     };
 
-    const serializedEvent = this.safeStringify(eventWithTimestamp);
+    const serializedEvent = this.serializeEventData(eventWithTimestamp);
 
     // Try WebSocket first
     if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {

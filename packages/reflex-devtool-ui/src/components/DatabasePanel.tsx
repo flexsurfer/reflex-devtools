@@ -31,28 +31,30 @@ export default function DatabasePanel() {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-                {viewMode === 'database' ? (
-                    !db ? (
+            <div className="flex-1 overflow-y-auto relative">
+                <div className={`absolute inset-0 overflow-y-auto ${viewMode === 'database' ? '' : 'invisible pointer-events-none'}`}>
+                    {!db ? (
                         <div className="flex flex-col items-center justify-center h-full text-base-content/60 text-center">
                             <p className="text-lg font-medium">No database state yet...</p>
                             <p className="text-sm">Run your app with devtools enabled to see database state here</p>
                         </div>
                     ) : (
                         <JsonViewer src={db} name="db" />
-                    )
-                ) : viewMode === 'handlers' ? (
-                    <HandlersTable />
-                ) : (
-                    !activeSubs ? (
+                    )}
+                </div>
+                <div className={`absolute inset-0 overflow-y-auto ${viewMode === 'subscriptions' ? '' : 'invisible pointer-events-none'}`}>
+                    {!activeSubs ? (
                         <div className="flex flex-col items-center justify-center h-full text-base-content/60 text-center">
                             <p className="text-lg font-medium">No active subscriptions yet...</p>
                             <p className="text-sm">Active subscriptions will appear here when your app is running</p>
                         </div>
                     ) : (
                         <JsonViewer src={activeSubs} name="activeSubs" />
-                    )
-                )}
+                    )}
+                </div>
+                <div className={`absolute inset-0 overflow-y-auto ${viewMode === 'handlers' ? '' : 'invisible pointer-events-none'}`}>
+                    <HandlersTable />
+                </div>
             </div>
         </div>
     );

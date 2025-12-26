@@ -1,5 +1,8 @@
-import { dispatch, regEffect } from "@flexsurfer/reflex";
+import { dispatch, regEffect, enableMapSet } from "@flexsurfer/reflex";
 import { saveSettings } from "./utils/settingsStorage";
+import { reflexReviver } from "./utils/serialization";
+
+enableMapSet();
 
 let wsConnection: WebSocket | null = null;
 
@@ -19,7 +22,8 @@ const connectWebSocket = () => {
 
     wsRef.onmessage = (event) => {
         try {
-            const data = JSON.parse(event.data);
+            const data = JSON.parse(event.data, reflexReviver);
+
             if (data.type === 'reflex-traces') {
                 dispatch(['add-traces', data.payload]);
             } else if (data.type === 'reflex-app-db') {

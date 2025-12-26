@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TraceStorage } from './storage.js';
+import { reflexReviver, mapSetReflexReplacer } from '../serialization.js';
 
 export interface ServerConfig {
   port: number;
@@ -53,22 +54,28 @@ export class DevtoolsServer {
 
   private setupMiddleware(): void {
     this.app.use(cors());
-    this.app.use(express.json({ limit: '50mb' }));
+
+    // Capture raw body before express.json parses it
+    this.app.use(express.json({
+      limit: '50mb',
+      verify: (req: any, _res, buf) => {
+        (req as any).rawBody = buf;
+      }
+    }));
+
     this.app.use(express.static(this.uiPath));
   }
 
   private setupRoutes(): void {
     // HTTP fallback endpoint for receiving events from client SDK
     this.app.post('/event', (req: Request, res: Response) => {
-      const event = req.body;
-      
-      // Process and store the event
-      this.processEvent(event);
-      
-      // Forward event to all connected UI clients
-      this.broadcastToUI(event);
-      
-      res.json({ success: true });
+      const rawBodyStr = (req as any).rawBody.toString();
+
+      if (this.processRawEventMessage(rawBodyStr)) {
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ success: false, error: 'Invalid event format' });
+      }
     });
 
     // Health check endpoint
@@ -124,7 +131,7 @@ export class DevtoolsServer {
 
       try {
         const state = this.storage.getAppState();
-        res.json({ success: true, state });
+        res.type('application/json').send(JSON.stringify({ success: true, state }, mapSetReflexReplacer));
       } catch (error) {
         res.status(500).json({ 
           success: false, 
@@ -145,7 +152,7 @@ export class DevtoolsServer {
 
       try {
         const subs = this.storage.getActiveSubs();
-        res.json({ success: true, subscriptions: subs });
+        res.type('application/json').send(JSON.stringify({ success: true, subscriptions: subs }, mapSetReflexReplacer));
       } catch (error) {
         res.status(500).json({ 
           success: false, 
@@ -232,11 +239,27 @@ export class DevtoolsServer {
     });
   }
 
-  private processEvent(event: any): void {
+  private processRawEventMessage(rawMessage: string): boolean {
+    try {
+      // Process and store the event
+      this.processEvent(rawMessage);
+
+      // Forward the original JSON string to UI clients (preserve serialization)
+      this.broadcastRawToUI(rawMessage);
+
+      return true;
+    } catch (error) {
+      console.error('[Reflex Devtools] Error parsing event:', error);
+      return false;
+    }
+  }
+
+  private processEvent(rawMessage: string): void {
     // Store events in the trace storage (only if MCP is enabled)
     if (!this.storage) return;
-    
+
     try {
+      const event = JSON.parse(rawMessage, reflexReviver);
       switch (event.type) {
         case 'reflex-traces':
           if (event.payload && Array.isArray(event.payload)) {
@@ -293,17 +316,8 @@ export class DevtoolsServer {
         }));
         
         ws.on('message', (data) => {
-          try {
-            const event = JSON.parse(data.toString());
-            
-            // Process and store the event
-            this.processEvent(event);
-            
-            // Forward event to all connected UI clients
-            this.broadcastToUI(event);
-          } catch (error) {
-            console.error('[Reflex Devtools] Error parsing event:', error);
-          }
+          const rawMessage = data.toString();
+          this.processRawEventMessage(rawMessage);
         });
 
         ws.on('close', () => {
@@ -384,15 +398,13 @@ export class DevtoolsServer {
     });
   }
 
-  private broadcastToUI(event: any): void {
-    const message = JSON.stringify(event);
-    
+  private broadcastRawToUI(rawMessage: string): void {
     this.uiClients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         try {
-          client.send(message);
+          client.send(rawMessage);
         } catch (error) {
-          console.error('[Reflex Devtools] Error sending to UI client:', error);
+          console.error('[Reflex Devtools] Error sending raw message to UI client:', error);
           this.uiClients.delete(client);
         }
       } else {

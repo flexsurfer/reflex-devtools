@@ -2,10 +2,11 @@
  * In-memory storage for raw traces and app state
  */
 
-import { applyPatches, enablePatches } from 'immer';
+import { applyPatches, enablePatches, enableMapSet } from 'immer';
 
 // Enable Immer patches plugin for applyPatches functionality
 enablePatches();
+enableMapSet();
 
 export interface Trace {
   id: number;
@@ -47,7 +48,12 @@ export class TraceStorage {
 
     // Apply patches to the app state if we have patches and state
     if (allPatches.length > 0 && this.appState) {
-      this.appState = applyPatches(this.appState, allPatches);
+      try {
+        this.appState = applyPatches(this.appState, allPatches);
+      } catch (error) {
+        console.warn('[Reflex Devtools] Failed to apply patches to app state:', error);
+        // Continue without applying patches - traces are still stored
+      }
     }
 
     // Limit stored traces
