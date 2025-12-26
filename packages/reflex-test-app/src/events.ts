@@ -45,6 +45,84 @@ regEvent('test-event-with-immer-proxy', ({draftDb}) => {
   return [['fake-effect', draftDb.immerPayloadTest]];
 });
 
+// Map and Set manipulation events
+regEvent('add-user-to-map', ({draftDb}, userId: string, userData: any) => {
+  if (!draftDb.userMap) {
+    draftDb.userMap = new Map();
+  }
+  draftDb.userMap.set(userId, userData);
+});
+
+regEvent('remove-user-from-map', ({draftDb}, userId: string) => {
+  if (draftDb.userMap) {
+    draftDb.userMap.delete(userId);
+  }
+});
+
+regEvent('update-user-in-map', ({draftDb}, userId: string, updates: any) => {
+  if (draftDb.userMap && draftDb.userMap.has(userId)) {
+    const user = draftDb.userMap.get(userId);
+    Object.assign(user, updates);
+  }
+});
+
+regEvent('add-permission', ({draftDb}, permission: string) => {
+  if (!draftDb.permissionsSet) {
+    draftDb.permissionsSet = new Set();
+  }
+  draftDb.permissionsSet.add(permission);
+});
+
+regEvent('remove-permission', ({draftDb}, permission: string) => {
+  if (draftDb.permissionsSet) {
+    draftDb.permissionsSet.delete(permission);
+  }
+});
+
+regEvent('toggle-user-role', ({draftDb}, userId: string, newRole: string) => {
+  if (draftDb.nestedCollections?.userPermissions && draftDb.nestedCollections?.rolesMap) {
+    const rolePermissions = draftDb.nestedCollections.rolesMap.get(newRole);
+    if (rolePermissions) {
+      draftDb.nestedCollections.userPermissions.set(userId, new Set(rolePermissions));
+    }
+  }
+});
+
+regEvent('create-complex-map-set-structure', ({draftDb}) => {
+  // Create a complex nested structure with Maps and Sets
+  const projectsMap = new Map<string, any>();
+  projectsMap.set('project-1', {
+    name: 'Website Redesign',
+    members: new Set(['alice', 'bob', 'charlie']),
+    tasks: new Map([
+      ['task-1', { title: 'Design mockups', status: 'completed' }],
+      ['task-2', { title: 'Implement frontend', status: 'in-progress' }]
+    ])
+  });
+  projectsMap.set('project-2', {
+    name: 'API Development',
+    members: new Set(['bob', 'diana']),
+    tasks: new Map([
+      ['task-3', { title: 'Design endpoints', status: 'completed' }],
+      ['task-4', { title: 'Write documentation', status: 'pending' }]
+    ])
+  });
+
+  const featuresMap = new Map<string, any>();
+  featuresMap.set('dashboard', true);
+  featuresMap.set('reports', false);
+  featuresMap.set('analytics', new Set(['basic', 'advanced']));
+
+  const settingsMap = new Map<string, any>();
+  settingsMap.set('theme', 'dark');
+  settingsMap.set('notifications', new Set(['email', 'push']));
+  settingsMap.set('features', featuresMap);
+
+  draftDb.complexData = new Map<string, any>();
+  draftDb.complexData.set('projects', projectsMap);
+  draftDb.complexData.set('settings', settingsMap);
+});
+
 regEffect('fake-effect', (param) => {
   console.log('fake-effect', param);
 });

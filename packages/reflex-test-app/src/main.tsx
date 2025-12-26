@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { enableTracing } from '@flexsurfer/reflex';
+import { enableTracing, enableMapSet } from '@flexsurfer/reflex';
 import { enableDevtools } from '@flexsurfer/reflex-devtools';
 import './index.css';
 import './db';
@@ -10,6 +10,7 @@ import App from './App';
 
 enableTracing();
 enableDevtools();
+enableMapSet();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

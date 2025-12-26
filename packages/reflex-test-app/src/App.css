@@ -142,7 +142,7 @@ section h2 {
   flex-wrap: wrap;
 }
 
-.api-button, .error-button {
+.api-button, .error-button, .map-button, .set-button, .complex-button, .test-button {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 0.5rem;
@@ -177,6 +177,46 @@ section h2 {
   transform: translateY(-2px);
 }
 
+.map-button {
+  background: #28a745;
+  color: white;
+}
+
+.map-button:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.set-button {
+  background: #ffc107;
+  color: #212529;
+}
+
+.set-button:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.complex-button {
+  background: #6f42c1;
+  color: white;
+}
+
+.complex-button:hover {
+  background: #5a359a;
+  transform: translateY(-2px);
+}
+
+.test-button {
+  background: #6c757d;
+  color: white;
+}
+
+.test-button:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
+}
+
 .info-section ol {
   padding-left: 1.5rem;
   color: #495057;
@@ -208,7 +248,7 @@ section h2 {
     flex-direction: column;
   }
   
-  .api-button, .error-button {
+  .api-button, .error-button, .map-button, .set-button, .complex-button, .test-button {
     width: 100%;
   }
 } 
