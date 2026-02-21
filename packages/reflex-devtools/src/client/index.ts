@@ -62,17 +62,17 @@ class DevtoolsClient {
       const currentVersion = reaction.getVersion();
       const currentIsAlive = reaction.isAlive;
       const cached = this.reactionsCache.get(key);
-     
+
       // Send if reaction was alive but now dead
       if (cached && cached.isAlive && !currentIsAlive) {
         changedReactions[key] = "reflex-tool-sub-disposed";
         this.reactionsCache.delete(key);
       }
       // Send if this is a new reaction or version changed
-      else if (!cached || cached.version !== currentVersion) {
+      else if ((!cached || cached.version !== currentVersion) && currentIsAlive) {
         changedReactions[key] = reaction.getValue();
         // Update cache with current state
-       this.reactionsCache.set(key, { version: currentVersion, isAlive: currentIsAlive });
+        this.reactionsCache.set(key, { version: currentVersion, isAlive: currentIsAlive });
       }
     }
 
@@ -152,7 +152,7 @@ class DevtoolsClient {
     } else if (message.type === 'dispatch-to-client') {
       // Handle dispatch request from devtools UI
       const { eventName, params } = message.payload;
-      
+
       // Dispatch the event in the client app with all parameters
       dispatch([eventName, ...params]);
     }
