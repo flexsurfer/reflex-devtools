@@ -49,7 +49,7 @@ export default function DatabasePanel() {
                             <p className="text-sm">Active subscriptions will appear here when your app is running</p>
                         </div>
                     ) : (
-                        <JsonViewer src={activeSubs} name="activeSubs" />
+                        <JsonViewer src={activeSubs} name="activeComputedSubs" expandLevel={2} />
                     )}
                 </div>
                 <div className={`absolute inset-0 overflow-y-auto ${viewMode === 'handlers' ? '' : 'invisible pointer-events-none'}`}>

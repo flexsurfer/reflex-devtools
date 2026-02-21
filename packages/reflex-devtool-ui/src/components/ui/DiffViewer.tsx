@@ -1,4 +1,4 @@
-import { ObjectView, themeOneDark, themeGitHubLight, extendTheme, ResolverFn } from 'react-obj-view';
+import { ObjectView, themeOneDark, themeQuietLight, extendTheme, ResolverFn } from 'react-obj-view';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface Patch {
@@ -22,7 +22,7 @@ const darkTheme = extendTheme(themeOneDark, {
     background: 'transparent',
 });
 
-const lightTheme = extendTheme(themeGitHubLight, {
+const lightTheme = extendTheme(themeQuietLight, {
     background: 'transparent',
 });
 
@@ -94,8 +94,7 @@ function ValueRenderer({ value, theme }: { value: any; theme: 'light' | 'dark' }
     // For objects and arrays, use ObjectView with compact settings
     const objectTheme = extendTheme(theme === 'dark' ? darkTheme : lightTheme, {
         fontSize: '12px',
-        padding: '2px 0',
-        lineHeight: '1.2',
+        padding: '2px 0'
     });
 
     return (

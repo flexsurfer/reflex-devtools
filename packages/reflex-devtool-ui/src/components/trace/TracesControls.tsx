@@ -27,7 +27,7 @@ export default function TracesControls() {
                         <button onClick={handleToggleSettings} className="btn btn-sm btn-ghost">
                             View
                         </button>
-                        <TraceViewPanel isOpen={isPanelOpen} />
+                        <TraceViewPanel isOpen={isPanelOpen} onClose={() => setisPanelOpen(false)} />
                     </div>
                     <DispatchButton onClick={handleDispatchClick} />
                 </div>

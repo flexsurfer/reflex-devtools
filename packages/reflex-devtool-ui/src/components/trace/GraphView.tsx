@@ -1,30 +1,26 @@
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { Trace } from '../../types/Trace';
 import { useTheme } from '../../contexts/ThemeContext';
 import ForceGraph2D from 'react-force-graph-2d';
 import { createGraphData } from '../../utils/graphUtils';
 
-function getNodeColor(type: string, theme: string): string {
-    const isDark = theme === 'dark';
-
+function getNodeColor(type: string, isDark: boolean): string {
     switch (type) {
         case 'appdb':
-            // Using success color from badges: oklch(76% .177 163.223)
             return isDark ? '#22c55e' : '#16a34a';
         case 'sub/run':
-            // Using primary color from badges: oklch(45% .24 277.023)
             return isDark ? '#3b82f6' : '#2563eb';
         case 'render':
-            // Using info color from badges: oklch(74% .16 232.661)
             return isDark ? '#06b6d4' : '#0891b2';
         default:
-            return isDark ? '#6b7280' : '#4b5563'; // gray
+            return isDark ? '#6b7280' : '#4b5563';
     }
 }
 
 export default function GraphView({ traces }: { traces: Trace[] }) {
     const { theme } = useTheme();
     const containerRef = useRef<HTMLDivElement>(null);
+    const graphRef = useRef<any>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
     // Track container dimensions changes
@@ -47,6 +43,14 @@ export default function GraphView({ traces }: { traces: Trace[] }) {
     }, []);
 
     const graphData = useMemo(() => createGraphData(traces), [traces]);
+    const isDark = theme === 'dark';
+    const renderColor = getNodeColor('render', isDark);
+
+    // Fix node position after drag so it stays where user placed it
+    const handleNodeDragEnd = useCallback((node: any) => {
+        node.fx = node.x;
+        node.fy = node.y;
+    }, []);
 
     if (graphData.nodes.length === 1 && graphData.links.length === 0) {
         return (
@@ -64,6 +68,7 @@ export default function GraphView({ traces }: { traces: Trace[] }) {
     return (
         <div ref={containerRef} className="w-full h-full">
             <ForceGraph2D
+                ref={graphRef}
                 graphData={graphData}
                 width={dimensions.width}
                 height={dimensions.height}
@@ -71,27 +76,29 @@ export default function GraphView({ traces }: { traces: Trace[] }) {
                 backgroundColor="transparent"
                 enableNodeDrag={true}
                 enableZoomInteraction={true}
-                linkColor={() => theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'}
-                dagMode="lr"
-                dagLevelDistance={150}
+                linkColor={(link: any) => link.leadsToRender ? renderColor : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.2)')}
+                onNodeDragEnd={handleNodeDragEnd}
                 nodeCanvasObject={(node: any, ctx: any, globalScale: any) => {
                     const label = node.label;
                     const fontSize = 14 / globalScale;
                     ctx.font = `${fontSize}px Sans-Serif`;
                     const textWidth = ctx.measureText(label).width;
-                    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.4); // some padding
+                    const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.4);
 
-                    ctx.fillStyle = theme === 'dark' ? '#191e24' : 'rgba(255, 255, 255, 0.8)';
+                    ctx.fillStyle = isDark ? '#191e24' : 'rgba(255, 255, 255, 0.8)';
                     ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
 
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-
-                    // Draw label with color based on node type and theme
-                    ctx.fillStyle = getNodeColor(node.type, theme);
+                    ctx.fillStyle = getNodeColor(node.type, isDark);
                     ctx.fillText(label, node.x, node.y);
 
-                    node.__bckgDimensions = bckgDimensions; // to re-use in nodePointerAreaPaint
+                    node.__bckgDimensions = bckgDimensions;
+                }}
+                nodePointerAreaPaint={(node: any, color: any, ctx: any) => {
+                    ctx.fillStyle = color;
+                    const bckgDimensions = node.__bckgDimensions;
+                    bckgDimensions && ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
                 }}
             />
         </div>

@@ -66,14 +66,14 @@ class DevtoolsClient {
       // Send if reaction was alive but now dead
       if (cached && cached.isAlive && !currentIsAlive) {
         changedReactions[key] = "reflex-tool-sub-disposed";
+        this.reactionsCache.delete(key);
       }
       // Send if this is a new reaction or version changed
       else if (!cached || cached.version !== currentVersion) {
         changedReactions[key] = reaction.getValue();
-      }
-
-       // Update cache with current state
+        // Update cache with current state
        this.reactionsCache.set(key, { version: currentVersion, isAlive: currentIsAlive });
+      }
     }
 
     return changedReactions;

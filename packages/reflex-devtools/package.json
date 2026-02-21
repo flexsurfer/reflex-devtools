@@ -1,6 +1,6 @@
 {
   "name": "@flexsurfer/reflex-devtools",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Developer tools for applications built with the reflex library",
   "author": "flexsurfer",
   "license": "MIT",

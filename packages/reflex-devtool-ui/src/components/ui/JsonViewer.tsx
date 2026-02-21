@@ -3,6 +3,7 @@ import { ObjectView, ObjectViewHandle, themeOneDark, themeQuietLight, extendThem
 import "react-obj-view/dist/react-obj-view.css";
 import { useTheme } from '../../contexts/ThemeContext';
 import { SearchBox } from './SearchBox';
+import { DEFAULT_ACTION } from './jsonViewerActions';
 
 const darkTheme = extendTheme(themeOneDark, {
     background: 'transparent',
@@ -29,27 +30,36 @@ const customResolver = new Map<any, ResolverFn>([
     [Map, mapResolver],
 ]);
 
-export function JsonViewer({ src, name }: { src: any; name: string }) {
+/**
+ * JsonViewer component with built-in copy action using book icons.
+ * The copy button shows a book icon that changes to a book with checkmark during copying.
+ */
+export function JsonViewer({ src, name, expandLevel }: { src: any; name: string; expandLevel?: number; }) {
     const { theme } = useTheme();
     const objViewRef = useRef<ObjectViewHandle>(undefined);
 
     return (
-        <div className="w-full h-full relative">
-            <div className="absolute top-1 right-1 z-10">
+        <div className="relative h-full">
+            <div className="absolute top-1 right-1 z-101">
                 <SearchBox objViewRef={objViewRef} />
             </div>
-            <ObjectView
-                ref={objViewRef}
-                valueGetter={() => src}
-                name={name}
-                expandLevel={1}
-                showLineNumbers={false}
-                objectGroupSize={100}
-                arrayGroupSize={100}
-                highlightUpdate={true}
-                style={theme === 'dark' ? darkTheme : lightTheme}
-                resolver={customResolver}
-            />
+            <div className="h-full overflow-auto">
+                <ObjectView
+                    ref={objViewRef}
+                    valueGetter={() => src}
+                    name={name}
+                    expandLevel={expandLevel ?? 1}
+                    overscan={200}
+                    lineHeight={20}
+                    showLineNumbers={false}
+                    objectGroupSize={100}
+                    arrayGroupSize={100}
+                    highlightUpdate={true}
+                    style={theme === 'dark' ? darkTheme : lightTheme}
+                    resolver={customResolver}
+                    customActions={DEFAULT_ACTION}
+                />
+            </div>
         </div>
     );
-} 
+}

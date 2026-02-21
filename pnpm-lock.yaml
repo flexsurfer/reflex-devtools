@@ -26,8 +26,8 @@ importers:
         specifier: ^1.25.3
         version: 1.29.0(react@19.2.3)
       react-obj-view:
-        specifier: ^1.1.5
-        version: 1.1.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: ^1.1.10
+        version: 1.1.10(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
     devDependencies:
       '@tailwindcss/typography':
         specifier: ^0.5.16
@@ -1278,8 +1278,8 @@ packages:
     peerDependencies:
       react: '>=16.13.1'
 
-  react-obj-view@1.1.5:
-    resolution: {integrity: sha512-uZfVfPWqrpombm/TQLB7dmB87DUKcz9KlRvXaNNowFTrq9KkFJe0qLrKwxMbn9qC/GrPMDh5QZtmAHjMilj1Dg==}
+  react-obj-view@1.1.10:
+    resolution: {integrity: sha512-YRMXXKDnOv1j0FRB6umlt5BZG87KYqjiMb6u9ExLqnjFX6+XkQ/mXlEjHVLLQn+9W9VljIP/AbydTDB4zUNziA==}
     engines: {node: '>=22.0.0', yarn: '>=4.0.0'}
     peerDependencies:
       react: '19'
@@ -2517,7 +2517,7 @@ snapshots:
       jerrypick: 1.1.2
       react: 19.2.3
 
-  react-obj-view@1.1.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  react-obj-view@1.1.10(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
