@@ -116,6 +116,10 @@ export class TraceStorage {
     return filtered;
   }
 
+  getTrace(id: number): Trace | undefined {
+    return this.traces.find(trace => trace.id === id);
+  }
+
   getAppState(): any {
     return this.appState;
   }

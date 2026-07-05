@@ -1,6 +1,7 @@
 /**
  * MCP Tool: get_traces
- * Retrieve trace data with filtering options
+ * Retrieve compact trace rows with filtering options.
+ * Full detail for a single trace is available via get_trace.
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
@@ -15,7 +16,7 @@ export interface GetTracesParams {
 export function getTracesTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_traces',
-    description: 'Retrieve execution traces from the Reflex application. Traces include events, subscription operations (create/run/dispose), and render cycles with timing information. To get the current subscription values, use get_active_subs and operation.',
+    description: 'List execution traces from the Reflex application as compact rows: events, subscription operations (create/run/dispose), and render cycles with timing. Failed events carry an "error" summary; events whose effects threw carry an "effectErrors" count. Use get_trace with a row\'s id for full detail (state patches, emitted effects, error stack). To get current subscription values, use get_active_subs.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -43,8 +44,8 @@ export function getTracesTool(apiClient: DevToolsAPIClient) {
     },
     handler: async (params: GetTracesParams) => {
       try {
-        const limit = params.limit && params.limit > 0 && params.limit <= 1000 
-          ? params.limit 
+        const limit = params.limit && params.limit > 0 && params.limit <= 1000
+          ? params.limit
           : 50;
 
         const response = await apiClient.getTraces({
@@ -56,16 +57,24 @@ export function getTracesTool(apiClient: DevToolsAPIClient) {
 
         const traces = response.traces || [];
 
-        // Format raw traces for better readability
-        const formatted = traces.map((trace: any) => ({
-          id: trace.id,
-          operation: trace.operation || 'unknown',
-          opType: trace.opType || 'unknown',
-          duration: trace.duration !== undefined ? trace.duration.toFixed(2) + 'ms' : 'N/A',
-          timestamp: new Date(trace.start || 0).toISOString(),
-          tags: trace.tags,
-          childOf: trace.childOf
-        }));
+        // Compact rows: identity, timing, event args, and outcome flags.
+        // Fat tags (patches, effects, stacks) are get_trace territory.
+        const formatted = traces.map((trace: any) => {
+          const tags = trace.tags || {};
+          return {
+            id: trace.id,
+            operation: trace.operation || 'unknown',
+            opType: trace.opType || 'unknown',
+            duration: trace.duration !== undefined ? trace.duration.toFixed(2) + 'ms' : 'N/A',
+            timestamp: new Date(trace.start || 0).toISOString(),
+            event: tags.event,
+            query: tags.queryV,
+            error: tags.error ? `${tags.error.phase}: ${tags.error.message}` : undefined,
+            effectErrors: tags.effectErrors?.length || undefined,
+            // The client SDK serializes undefined as the string 'undefined'
+            childOf: trace.childOf === 'undefined' ? undefined : trace.childOf
+          };
+        });
 
         // Get stats from API
         const statsResponse = await apiClient.getStats();
@@ -105,4 +114,3 @@ export function getTracesTool(apiClient: DevToolsAPIClient) {
     }
   };
 }
-

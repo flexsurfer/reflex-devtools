@@ -35,6 +35,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "tsc && node --test test/*.test.mjs",
     "start": "node dist/cli.js",
     "prepack": "cp ../../README.md .",
     "postpack": "rm README.md"

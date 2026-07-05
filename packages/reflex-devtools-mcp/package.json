@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "tsc && node --test test/*.test.mjs",
     "dev": "tsc --watch",
     "start": "node dist/cli.js"
   },
@@ -39,4 +40,3 @@
     "model-context-protocol"
   ]
 }
-

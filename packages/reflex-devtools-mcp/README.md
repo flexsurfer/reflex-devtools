@@ -30,9 +30,9 @@ The Reflex DevTools MCP Server acts as a bridge between AI assistants and your r
 ```
 
 AI assistants can:
-- 📊 **Inspect execution traces** - View events, effects, subscriptions, and renders with timing data
+- 📊 **Inspect execution traces** - Compact trace lists plus per-trace detail (state patches, effects, errors)
 - 🔍 **Query application state** - Examine the current app database
-- 🚀 **Dispatch events** - Trigger handlers to test functionality
+- 🚀 **Dispatch events and observe the outcome** - Trigger a handler and get back the state diff it committed, the effects it emitted, or the error if it failed
 - 📚 **List handlers** - See all registered event handlers, effects, and subscriptions
 - ⚡ **Monitor subscriptions** - View active reactive queries
 
@@ -62,6 +62,8 @@ AI assistants can:
    ```
 
    **Important:** The `--mcp` flag enables trace storage and REST API. Without it, MCP will return "MCP not enabled" errors.
+
+   > **⚠️ Security note:** DevTools and its MCP API are development-only and unauthenticated — `/api/dispatch` can mutate application state. Never expose the server to the public internet; keep it on `localhost` or a trusted local network.
 
 4. **Start your Reflex application**
 
@@ -151,7 +153,7 @@ Cursor IDE also supports MCP servers. Add to your Cursor settings:
 
 ### 1. `get_traces`
 
-Retrieve execution traces from your application with filtering options.
+List execution traces from your application as compact rows: id, operation, opType, duration, timestamp, and event args. Failed events carry an `error` summary; events whose effects threw carry an `effectErrors` count. Use `get_trace` with a row's id for full detail.
 
 **Parameters:**
 - `limit` (number, optional): Maximum traces to return (default: 50, max: 1000)
@@ -164,7 +166,18 @@ Retrieve execution traces from your application with filtering options.
 - "Find all traces with duration over 100ms"
 - "Show me traces for the 'fetch-user' event"
 
-### 2. `get_app_state`
+### 2. `get_trace`
+
+Get the full detail of a single trace by id: for events, the state patches committed, the effects emitted, and error details (message, stack, failing interceptor) if it failed.
+
+**Parameters:**
+- `id` (number, required): The trace id, as returned by `get_traces`
+
+**Example prompts for Claude:**
+- "Show me the full detail of trace 42"
+- "What state changes did that failed event make before throwing?"
+
+### 3. `get_app_state`
 
 Retrieve the current application database state.
 
@@ -176,9 +189,17 @@ Retrieve the current application database state.
 - "Show me the user profile data"
 - "What's in the items array?"
 
-### 3. `dispatch_event`
+### 4. `dispatch_event`
 
-Dispatch an event to the application for testing.
+Dispatch an event to the application and observe what it did. The response reports the outcome derived from the event's trace:
+
+- `succeeded` — with the state patches it committed and the effects it emitted
+- `failed` — with the error: a missing handler (typo'd event id) or a throwing handler chain; state was not committed
+- `effects-failed` — state committed, but some effect handlers threw
+- `unknown` — dispatched, but no trace was observed (e.g. tracing disabled or the app disconnected)
+
+If no app is connected, the dispatch fails outright instead of pretending to succeed.
+This tool requires the DevTools server to be started with `--mcp`.
 
 **Parameters:**
 - `eventName` (string, required): The event ID to dispatch
@@ -186,23 +207,22 @@ Dispatch an event to the application for testing.
 
 **Example prompts for Claude:**
 - "Dispatch a 'set-user' event with id 123 and name 'Test User'"
-- "Trigger the 'clear-cache' event"
+- "Trigger the 'clear-cache' event and tell me what state it changed"
 - "Call 'update-settings' with dark mode enabled"
 
-### 4. `get_handlers`
+### 5. `get_handlers`
 
-List all registered handlers with usage statistics.
+List all registered handler ids, grouped by handler type.
 
 **Parameters:**
 - `type` (string, optional): Filter by handler type: `event`, `fx`, `cofx`, `sub`
-- `includeUsage` (boolean, optional): Include execution counts (default: true)
 
 **Example prompts for Claude:**
 - "What event handlers are registered?"
-- "List all effects with their usage counts"
+- "List all registered effects"
 - "Show me the subscription handlers"
 
-### 5. `get_active_subs`
+### 6. `get_active_subs`
 
 View currently active subscription reactions.
 
@@ -253,16 +273,13 @@ I'll dispatch a login event with test user data...
 
 *calls dispatch_event with eventName: "user-login", params: [{"id": 999, "name": "Test User"}]*
 
-Event dispatched successfully. Let me check the resulting state...
+The event succeeded. The response shows exactly what it did:
+- outcome: "succeeded"
+- stateChanges: user.id → 999, user.name → "Test User",
+  user.isAuthenticated → true
+- effectsEmitted: [["analytics-track", "login"]]
 
-*calls get_app_state*
-
-The state has been updated with:
-- user.id: 999
-- user.name: "Test User"
-- user.isAuthenticated: true
-
-The login flow appears to be working correctly!
+The login flow works — no follow-up state query needed.
 ```
 
 ### Understanding Code Architecture
@@ -273,15 +290,14 @@ The login flow appears to be working correctly!
 ```
 *calls get_handlers with type: "fx"*
 
-Your app has 8 effect handlers registered:
-1. fetch-api (used 45 times)
-2. local-storage (used 12 times)
-3. analytics-track (used 34 times)
-4. navigate (used 8 times)
-5. websocket-send (used 23 times)
-...
+Your app has 5 effect handlers registered:
+- fetch-api
+- local-storage
+- analytics-track
+- navigate
+- websocket-send
 
-The most-used effect is "fetch-api" which handles HTTP requests.
+The "fetch-api" effect handles HTTP requests.
 Would you like me to examine how it's being used in your event handlers?
 ```
 
@@ -303,6 +319,8 @@ Options:
   --max-traces <number>     Maximum traces to store (default: 1000, requires --mcp)
   --help                    Show help message
 ```
+
+Binding beyond `localhost` (e.g. `--host 0.0.0.0`) exposes the unauthenticated state-reading and dispatch API — only do this on trusted local networks, never on the public internet.
 
 ### MCP Server Configuration
 
@@ -413,6 +431,7 @@ packages/reflex-devtools-mcp/
 │   ├── httpClient.ts      # HTTP client for DevTools API
 │   └── tools/             # MCP tool implementations
 │       ├── getTraces.ts
+│       ├── getTrace.ts
 │       ├── getAppState.ts
 │       ├── dispatchEvent.ts
 │       ├── getHandlers.ts
@@ -455,4 +474,3 @@ Built with ❤️ for the Reflex community. Special thanks to:
   Made by [@flexsurfer](https://github.com/flexsurfer)
   
 </div>
-

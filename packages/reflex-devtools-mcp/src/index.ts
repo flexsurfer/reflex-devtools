@@ -5,6 +5,7 @@
  * and provides AI assistants with tools to inspect traces and dispatch events.
  */
 
+import { createRequire } from 'node:module';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -12,8 +13,13 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+// Resolved at runtime from the package manifest so the advertised MCP
+// server version can't drift from the published one.
+const { version: PACKAGE_VERSION } = createRequire(import.meta.url)('../package.json');
+
 import { DevToolsAPIClient } from './httpClient.js';
 import { getTracesTool } from './tools/getTraces.js';
+import { getTraceTool } from './tools/getTrace.js';
 import { getAppStateTool } from './tools/getAppState.js';
 import { dispatchEventTool } from './tools/dispatchEvent.js';
 import { getHandlersTool } from './tools/getHandlers.js';
@@ -32,7 +38,7 @@ export class ReflexDevToolsMCPServer {
     this.server = new Server(
       {
         name: 'reflex-devtools',
-        version: '0.1.10',
+        version: PACKAGE_VERSION,
       },
       {
         capabilities: {
@@ -57,6 +63,7 @@ export class ReflexDevToolsMCPServer {
   private registerTools(): void {
     const tools = [
       getTracesTool(this.apiClient),
+      getTraceTool(this.apiClient),
       getAppStateTool(this.apiClient),
       dispatchEventTool(this.apiClient),
       getHandlersTool(this.apiClient),

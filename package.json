@@ -6,6 +6,7 @@
   "packageManager": "pnpm@10.13.1",
   "scripts": {
     "build": "pnpm -r build",
+    "test": "pnpm -r --if-present run test",
     "build:devtools": "pnpm --filter @flexsurfer/reflex-devtools build",
     "build:ui": "pnpm --filter reflex-devtool-ui build",
     "build:mcp": "pnpm --filter @flexsurfer/reflex-devtools-mcp build",

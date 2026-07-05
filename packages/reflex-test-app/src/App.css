@@ -43,6 +43,72 @@
   gap: 2rem;
 }
 
+/* Tab navigation */
+.tab-nav {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #dee2e6;
+  border-radius: 0.75rem;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-button:hover {
+  border-color: #667eea;
+  background: #f0f0ff;
+}
+
+.tab-button--active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.tab-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.tab-subs {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  font-family: monospace;
+}
+
+.tab-button--active .tab-subs {
+  opacity: 0.9;
+}
+
+.tab-content {
+  min-height: 400px;
+}
+
+/* Subscription info hint */
+.sub-info {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+.sub-info code {
+  background: #e9ecef;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 0.78rem;
+}
+
 section {
   background: #f8f9fa;
   padding: 2rem;

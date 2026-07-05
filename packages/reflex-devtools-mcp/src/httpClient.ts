@@ -32,6 +32,15 @@ export class DevToolsAPIClient {
     return response.json();
   }
 
+  async getTrace(id: number): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/api/traces/${id}`);
+    if (!response.ok) {
+      const body: any = await response.json().catch(() => null);
+      throw new Error(body?.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
   async getAppState(): Promise<any> {
     const response = await fetch(`${this.baseUrl}/api/state`);
     if (!response.ok) {
@@ -74,7 +83,9 @@ export class DevToolsAPIClient {
       body: JSON.stringify({ eventName, params }),
     });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // The server puts the reason (e.g. no app connected) in the body
+      const body: any = await response.json().catch(() => null);
+      throw new Error(body?.error || `HTTP ${response.status}: ${response.statusText}`);
     }
     return response.json();
   }
@@ -88,4 +99,3 @@ export class DevToolsAPIClient {
     }
   }
 }
-

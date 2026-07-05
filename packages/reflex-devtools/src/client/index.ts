@@ -13,6 +13,17 @@ export interface EventPayload {
   timestamp?: number;
 }
 
+// How long a server-initiated dispatch waits for its event trace before
+// reporting an unknown outcome. Kept below the server's own /api/dispatch
+// timeout so the server gets a definitive answer instead of timing out.
+const DISPATCH_TRACE_TIMEOUT_MS = 4000;
+
+interface PendingDispatch {
+  dispatchId: number;
+  eventId: string;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
 class DevtoolsClient {
   private config: DevtoolsConfig;
   private ws: WebSocket | null = null;
@@ -20,6 +31,7 @@ class DevtoolsClient {
   private isTracingEnabled = false;
   private serverAvailable = false;
   private reactionsCache = new Map<string, { version: number; isAlive: boolean }>();
+  private pendingDispatches: PendingDispatch[] = [];
 
   constructor(config: DevtoolsConfig) {
     this.config = {
@@ -150,11 +162,53 @@ class DevtoolsClient {
         this.stopTracing();
       }
     } else if (message.type === 'dispatch-to-client') {
-      // Handle dispatch request from devtools UI
-      const { eventName, params } = message.payload;
+      // Handle dispatch request from devtools UI or MCP
+      const { dispatchId, eventName, params } = message.payload;
+
+      // MCP dispatches carry a dispatchId and expect the event's trace back
+      // (reflex-dispatch-result). UI dispatches don't. Register the watcher
+      // before dispatching so the trace can't slip past it.
+      if (dispatchId != null) {
+        if (this.isTracingEnabled) {
+          const timeout = setTimeout(() => {
+            this.pendingDispatches = this.pendingDispatches.filter(p => p.dispatchId !== dispatchId);
+            this.sendEvent({
+              type: 'reflex-dispatch-result',
+              payload: { dispatchId, reason: `no trace observed for '${eventName}' within ${DISPATCH_TRACE_TIMEOUT_MS}ms` }
+            });
+          }, DISPATCH_TRACE_TIMEOUT_MS);
+          this.pendingDispatches.push({ dispatchId, eventId: eventName, timeout });
+        } else {
+          this.sendEvent({
+            type: 'reflex-dispatch-result',
+            payload: { dispatchId, reason: 'tracing is disabled in the app, outcome not observed' }
+          });
+        }
+      }
 
       // Dispatch the event in the client app with all parameters
       dispatch([eventName, ...params]);
+    }
+  }
+
+  // Match freshly flushed event traces against dispatches awaiting an
+  // outcome. FIFO by event id: if the app happens to dispatch the same event
+  // concurrently, the earliest trace wins — acceptable ambiguity for a
+  // dev-only observation channel.
+  private async reportDispatchResults(traces: any[]): Promise<void> {
+    if (this.pendingDispatches.length === 0) return;
+
+    for (const trace of traces) {
+      if (trace.opType !== 'event') continue;
+      const index = this.pendingDispatches.findIndex(p => p.eventId === trace.operation);
+      if (index === -1) continue;
+
+      const [pending] = this.pendingDispatches.splice(index, 1);
+      clearTimeout(pending.timeout);
+      await this.sendEvent({
+        type: 'reflex-dispatch-result',
+        payload: { dispatchId: pending.dispatchId, trace }
+      });
     }
   }
 
@@ -163,17 +217,21 @@ class DevtoolsClient {
 
       this.isTracingEnabled = true;
 
-      registerTraceCb('reflex-devtool', (traces) => {
-        this.sendEvent({
+      registerTraceCb('reflex-devtool', async (traces) => {
+        // Awaited so the server has stored the traces before a dispatch
+        // outcome referencing a trace id resolves — ws.send preserves order
+        // by itself, but the HTTP fallback does not. sendEvent never rejects.
+        await this.sendEvent({
           type: 'reflex-traces',
           component: 'Reflex',
           payload: traces
         });
-        this.sendEvent({
+        await this.sendEvent({
           type: 'reflex-active-subs',
           component: 'Reflex',
           payload: this.mapReactions()
         });
+        await this.reportDispatchResults(traces);
       });
     }
 
@@ -198,6 +256,17 @@ class DevtoolsClient {
     if (this.isTracingEnabled) {
       this.isTracingEnabled = false;
       removeTraceCb('reflex-devtool');
+
+      // No more trace callbacks are coming; answer outstanding dispatches
+      // now instead of letting them time out.
+      for (const pending of this.pendingDispatches) {
+        clearTimeout(pending.timeout);
+        this.sendEvent({
+          type: 'reflex-dispatch-result',
+          payload: { dispatchId: pending.dispatchId, reason: 'tracing stopped before the outcome was observed' }
+        });
+      }
+      this.pendingDispatches = [];
     }
   }
 

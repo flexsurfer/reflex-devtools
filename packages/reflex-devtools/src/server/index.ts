@@ -14,6 +14,11 @@ export interface ServerConfig {
   enableMCP?: boolean;
 }
 
+// How long /api/dispatch waits for the SDK to report the event's trace before
+// answering with outcome 'unknown'. Traces are debounced 50ms client-side, so
+// a healthy round trip is well under a second.
+const DISPATCH_OUTCOME_TIMEOUT_MS = 5000;
+
 export class DevtoolsServer {
   private app: express.Application;
   private server: any;
@@ -23,6 +28,8 @@ export class DevtoolsServer {
   private sdkClients: Set<WebSocket> = new Set();
   private storage: TraceStorage | null = null;
   private uiPath: string;
+  private pendingDispatches: Map<number, { res: Response; timeout: NodeJS.Timeout }> = new Map();
+  private nextDispatchId = 1;
 
   constructor(config: ServerConfig) {
     this.config = {
@@ -110,7 +117,7 @@ export class DevtoolsServer {
           opType
         });
 
-        res.json({ success: true, traces });
+        res.type('application/json').send(JSON.stringify({ success: true, traces }, mapSetReflexReplacer));
       } catch (error) {
         res.status(500).json({ 
           success: false, 
@@ -207,28 +214,98 @@ export class DevtoolsServer {
       }
     });
 
-    // MCP API: Dispatch event to client
+    // MCP API: Get a single trace with full detail
+    this.app.get('/api/traces/:id', (req: Request, res: Response) => {
+      if (!this.storage) {
+        res.status(503).json({
+          success: false,
+          error: 'MCP not enabled. Start server with --mcp flag to enable trace storage.'
+        });
+        return;
+      }
+
+      try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id)) {
+          res.status(400).json({ success: false, error: 'Trace id must be a number' });
+          return;
+        }
+
+        const trace = this.storage.getTrace(id);
+        if (!trace) {
+          res.status(404).json({ success: false, error: `No trace with id ${id}` });
+          return;
+        }
+
+        res.type('application/json').send(JSON.stringify({ success: true, trace }, mapSetReflexReplacer));
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
+    // MCP API: Dispatch event to client and report the observed outcome.
+    // The response is held until the SDK sends back the event's trace
+    // (reflex-dispatch-result), so a typo'd id or a throwing handler comes
+    // back as a failure instead of a blind "dispatched".
     this.app.post('/api/dispatch', (req: Request, res: Response) => {
       try {
+        if (!this.config.enableMCP) {
+          res.status(503).json({
+            success: false,
+            error: 'MCP dispatch is disabled. Start reflex-devtools with --mcp to enable /api/dispatch.'
+          });
+          return;
+        }
+
         const { eventName, params } = req.body;
-        
-        if (!eventName) {
+
+        if (typeof eventName !== 'string' || eventName.trim() === '') {
           res.status(400).json({ success: false, error: 'eventName is required' });
           return;
         }
 
-        const message = {
-          type: 'dispatch-to-client',
-          payload: { eventName, params: params || [] },
-          timestamp: Date.now()
-        };
+        if (params != null && !Array.isArray(params)) {
+          res.status(400).json({ success: false, error: 'params must be an array' });
+          return;
+        }
 
-        this.broadcastToSDK(message);
-        res.json({ success: true, message: 'Event dispatched' });
+        const eventParams = params ?? [];
+        const dispatchId = this.nextDispatchId++;
+
+        // Sent count, not sdkClients.size: the set can hold stale sockets
+        // that broadcastToSDK skips. The client's reply can't arrive before
+        // this handler returns, so registering the pending entry after the
+        // broadcast is race-free.
+        const sent = this.broadcastToSDK({
+          type: 'dispatch-to-client',
+          payload: { dispatchId, eventName, params: eventParams },
+          timestamp: Date.now()
+        });
+
+        if (sent === 0) {
+          res.status(503).json({
+            success: false,
+            error: 'No app connected to the devtools server; the event was not dispatched'
+          });
+          return;
+        }
+
+        const timeout = setTimeout(() => {
+          this.pendingDispatches.delete(dispatchId);
+          res.json({
+            success: true,
+            outcome: 'unknown',
+            message: `Event dispatched, but the app reported no trace for it within ${DISPATCH_OUTCOME_TIMEOUT_MS}ms`
+          });
+        }, DISPATCH_OUTCOME_TIMEOUT_MS);
+        this.pendingDispatches.set(dispatchId, { res, timeout });
       } catch (error) {
-        res.status(500).json({ 
-          success: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
+        res.status(500).json({
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     });
@@ -241,6 +318,17 @@ export class DevtoolsServer {
 
   private processRawEventMessage(rawMessage: string): boolean {
     try {
+      // Dispatch results resolve a pending /api/dispatch response; they are
+      // neither stored nor forwarded to UI clients. The substring gate keeps
+      // the UI-relay path parse-free when nothing is pending.
+      if (this.pendingDispatches.size > 0 && rawMessage.includes('reflex-dispatch-result')) {
+        const event = JSON.parse(rawMessage, reflexReviver);
+        if (event.type === 'reflex-dispatch-result') {
+          this.resolveDispatch(event.payload);
+          return true;
+        }
+      }
+
       // Process and store the event
       this.processEvent(rawMessage);
 
@@ -251,6 +339,52 @@ export class DevtoolsServer {
     } catch (error) {
       console.error('[Reflex Devtools] Error parsing event:', error);
       return false;
+    }
+  }
+
+  // Answer a held /api/dispatch response with the outcome derived from the
+  // event's trace tags: `error` means the event never committed,
+  // `effectErrors` means it committed but effects failed. reversePatches are
+  // deliberately dropped — outcome consumers never time-travel.
+  private resolveDispatch(payload: any): void {
+    const pending = this.pendingDispatches.get(payload?.dispatchId);
+    if (!pending) return; // already timed out
+
+    clearTimeout(pending.timeout);
+    this.pendingDispatches.delete(payload.dispatchId);
+
+    let body: Record<string, any>;
+    if (payload.trace) {
+      const tags = payload.trace.tags || {};
+      const outcome = tags.error ? 'failed'
+        : (tags.effectErrors?.length ? 'effects-failed' : 'succeeded');
+      body = {
+        success: true,
+        outcome,
+        traceId: payload.trace.id,
+        event: tags.event,
+        duration: payload.trace.duration,
+        error: tags.error,
+        effectErrors: tags.effectErrors,
+        patches: tags.patches,
+        effects: tags.effects
+      };
+    } else {
+      body = {
+        success: true,
+        outcome: 'unknown',
+        message: payload.reason || 'The app reported no trace for this dispatch'
+      };
+    }
+
+    pending.res.type('application/json').send(JSON.stringify(body, mapSetReflexReplacer));
+  }
+
+  private failPendingDispatches(reason: string): void {
+    for (const [dispatchId, pending] of this.pendingDispatches) {
+      clearTimeout(pending.timeout);
+      this.pendingDispatches.delete(dispatchId);
+      pending.res.json({ success: true, outcome: 'unknown', message: reason });
     }
   }
 
@@ -323,11 +457,17 @@ export class DevtoolsServer {
         ws.on('close', () => {
           console.log('[Reflex Devtools] SDK client disconnected');
           this.sdkClients.delete(ws);
+          if (this.sdkClients.size === 0) {
+            this.failPendingDispatches('App disconnected before reporting the dispatch outcome');
+          }
         });
 
         ws.on('error', (error) => {
           console.error('[Reflex Devtools] SDK WebSocket error:', error);
           this.sdkClients.delete(ws);
+          if (this.sdkClients.size === 0) {
+            this.failPendingDispatches('App disconnected before reporting the dispatch outcome');
+          }
         });
 
       } else if (url === '/ui') {
@@ -413,13 +553,17 @@ export class DevtoolsServer {
     });
   }
 
-  private broadcastToSDK(message: any): void {
+  // Returns the number of SDK clients the message was actually sent to, so
+  // callers can tell "dispatched" apart from "broadcast into the void".
+  private broadcastToSDK(message: any): number {
     const messageStr = JSON.stringify(message);
+    let sent = 0;
 
     this.sdkClients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         try {
           client.send(messageStr);
+          sent++;
         } catch (error) {
           console.error('[Reflex Devtools] Error sending to SDK client:', error);
           this.sdkClients.delete(client);
@@ -428,6 +572,8 @@ export class DevtoolsServer {
         this.sdkClients.delete(client);
       }
     });
+
+    return sent;
   }
 
   start(): Promise<void> {
@@ -466,4 +612,4 @@ export class DevtoolsServer {
       });
     });
   }
-} 
+}
