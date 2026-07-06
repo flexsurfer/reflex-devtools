@@ -29,6 +29,23 @@ export interface MCPServerConfig {
   devtoolsServerUrl: string;
 }
 
+// Sent to every client at initialize time — for most agents this is the only
+// usage documentation they ever see, so it must stay in sync with the actual
+// tool set (the stdio integration test checks every tool is mentioned).
+const SERVER_INSTRUCTIONS = `Reflex DevTools: inspect and drive a live Reflex app (re-frame-style — events mutate a central app-db through pure handlers, subscriptions derive values from it).
+
+Retrieval order (cheapest first):
+1. get_handlers — registered event/sub/effect ids; start here to learn what exists.
+2. get_app_state with "path" — read only the state slice you need; avoid full dumps on real apps.
+3. get_active_subs — current values of the computed subscriptions the UI has mounted.
+4. dispatch_event — act. The response already carries the outcome (succeeded | failed | effects-failed | unknown) plus the state patches and emitted effects; verify from it instead of re-reading state.
+5. get_traces — compact rows of recent activity, including what you did not initiate (user clicks, timers, subscriptions). Drill into one trace with get_trace; never page through full trace details.
+
+Caveats:
+- dispatch_event mutates app state; it requires the devtools server started with --mcp and a connected app.
+- Trace ids reset and stored traces clear when the app reloads or reconnects, so a missing trace id usually means "session reset", not a bug.
+- A failed dispatch with phase "missing-handler" means that exact event id is not registered — check it against get_handlers.`;
+
 export class ReflexDevToolsMCPServer {
   private server: Server;
   private apiClient: DevToolsAPIClient;
@@ -44,6 +61,7 @@ export class ReflexDevToolsMCPServer {
         capabilities: {
           tools: {},
         },
+        instructions: SERVER_INSTRUCTIONS,
       }
     );
 

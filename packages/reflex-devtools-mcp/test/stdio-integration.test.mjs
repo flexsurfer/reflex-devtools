@@ -139,6 +139,15 @@ test('stdio MCP server lists tools and dispatches events through the DevTools HT
       ],
     );
 
+    // The initialize-time instructions are the agent's primary usage docs:
+    // they must be advertised and must mention every tool the server exposes.
+    const instructions = client.getInstructions();
+    assert.ok(instructions && instructions.length > 0, 'server should advertise instructions');
+    for (const tool of tools.tools) {
+      assert.ok(instructions.includes(tool.name), `instructions should mention ${tool.name}`);
+    }
+    assert.match(instructions, /--mcp/);
+
     const handlers = parseToolResult(await client.callTool({
       name: 'get_handlers',
       arguments: { type: 'event' },

@@ -151,6 +151,8 @@ Cursor IDE also supports MCP servers. Add to your Cursor settings:
 
 ## 🛠️ Available MCP Tools
 
+The server also advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: discover handlers first, read state by path, act with `dispatch_event`, verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
+
 ### 1. `get_traces`
 
 List execution traces from your application as compact rows: id, operation, opType, duration, timestamp, and event args. Failed events carry an `error` summary; events whose effects threw carry an `effectErrors` count. Use `get_trace` with a row's id for full detail.
