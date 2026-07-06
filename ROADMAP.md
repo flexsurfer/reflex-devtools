@@ -2,6 +2,8 @@
 
 Devtools-specific improvements for [reflex-devtools](https://github.com/flexsurfer/reflex-devtools). Coordinated library-side work remains tracked in the [reflex ROADMAP.md](https://github.com/flexsurfer/reflex/blob/main/ROADMAP.md) with **(pairs with …)** notes.
 
+The canonical agent scenario these tools serve is [docs/agent-workflow.md](docs/agent-workflow.md) — a worked task showing which tool answers which question at each loop stage. New tools should be justified against it (and it flags the currently-proposed ones: `app_status`, `explain_event`, `replay_events`, headless runtime).
+
 ---
 
 ## Reflex DevTools + MCP (tools)
