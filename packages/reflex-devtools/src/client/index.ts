@@ -4,6 +4,25 @@ import { reflexReplacer } from "../serialization.js";
 export interface DevtoolsConfig {
   serverUrl?: string;
   enabled?: boolean;
+  /**
+   * Which environment the app runs in. Auto-detected when omitted:
+   * 'react-native' when navigator.product says so, 'headless' when there
+   * is no `window` (Node under tsx/vite-node), 'browser' otherwise.
+   * Surfaced through the server's /api/status.
+   */
+  runtime?: 'browser' | 'headless' | 'react-native';
+  /**
+   * Free-form label for the app's side-effect policy, e.g. 'real' in the
+   * browser entry or 'safe' in a headless entry whose adapters are
+   * memory-backed/no-op.
+   */
+  effectMode?: string;
+  /**
+   * Adapter mode per effect/coeffect id, e.g.
+   * { 'local-storage-set': 'memory', 'analytics-track': 'noop' }.
+   * Purely informational — tells agents which effects really execute.
+   */
+  effects?: Record<string, string>;
 }
 
 export interface EventPayload {
@@ -17,6 +36,17 @@ export interface EventPayload {
 // reporting an unknown outcome. Kept below the server's own /api/dispatch
 // timeout so the server gets a definitive answer instead of timing out.
 const DISPATCH_TRACE_TIMEOUT_MS = 4000;
+
+// React Native must be checked before `window`: RN aliases the global object
+// to `window`, so a window check alone would mislabel it as a browser.
+// navigator.product === 'ReactNative' is RN's canonical self-identification;
+// real browsers report 'Gecko' and Node's navigator has no product at all.
+function detectRuntime(): 'browser' | 'headless' | 'react-native' {
+  if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+    return 'react-native';
+  }
+  return typeof window === 'undefined' ? 'headless' : 'browser';
+}
 
 interface PendingDispatch {
   dispatchId: number;
@@ -37,6 +67,7 @@ class DevtoolsClient {
     this.config = {
       enabled: true,
       serverUrl: 'localhost:4000',
+      runtime: detectRuntime(),
       ...config,
     };
   }
@@ -44,6 +75,16 @@ class DevtoolsClient {
   async init(): Promise<void> {
 
     if (!this.config.enabled) return;
+
+    // Browsers and React Native always have WebSocket; Node only from v22
+    // (v21 experimentally). Without this guard the constructor throw would be
+    // swallowed and the SDK would limp along on the HTTP fallback — traces
+    // flowing but dispatch impossible — which is far harder to diagnose than
+    // an explicit refusal.
+    if (typeof WebSocket === 'undefined') {
+      console.warn('[Reflex Devtools] No global WebSocket in this runtime — headless mode requires Node >= 22. Devtools disabled.');
+      return;
+    }
 
     this.startTracing();
 
@@ -250,6 +291,24 @@ class DevtoolsClient {
       component: 'Reflex',
       payload: this.getHandlerKeys(getHandlers())
     });
+    this.sendRuntimeInfo();
+  }
+
+  // Tells the server how this app runs (browser tab vs headless process),
+  // which effect adapters are active, and whether tracing is on — surfaced
+  // to agents through /api/status. Re-sent whenever tracing flips so the
+  // server's view never goes stale.
+  private sendRuntimeInfo(): void {
+    this.sendEvent({
+      type: 'reflex-runtime-info',
+      component: 'Reflex',
+      payload: {
+        runtime: this.config.runtime,
+        effectMode: this.config.effectMode,
+        effects: this.config.effects,
+        tracing: this.isTracingEnabled
+      }
+    });
   }
 
   private stopTracing(): void {
@@ -267,6 +326,8 @@ class DevtoolsClient {
         });
       }
       this.pendingDispatches = [];
+
+      this.sendRuntimeInfo();
     }
   }
 

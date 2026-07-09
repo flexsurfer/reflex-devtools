@@ -4,7 +4,8 @@
   "description": "Example app demonstrating Reflex Devtools",
   "type": "module",
   "scripts": {
-    "dev": "vite"
+    "dev": "vite",
+    "dev:headless": "vite-node --watch src/headless.ts"
   },
   "dependencies": {
     "react": "^19.2.3",
@@ -16,6 +17,7 @@
     "@types/node": "^20.16.1",
     "@vitejs/plugin-react": "^4.1.0",
     "typescript": "^5.2.2",
-    "vite": "^7.0.6"
+    "vite": "^7.0.6",
+    "vite-node": "^3.2.4"
   }
 }

@@ -40,6 +40,25 @@ async function startFakeDevtoolsServer() {
         return;
       }
 
+      if (req.method === 'GET' && url.pathname === '/api/status') {
+        sendJson(res, 200, {
+          success: true,
+          mcpEnabled: true,
+          appConnected: true,
+          connectedApps: 1,
+          connectedUIs: 0,
+          sessionEpoch: 1,
+          runtime: 'headless',
+          effectMode: 'safe',
+          effects: { 'fake-effect': 'real' },
+          tracing: true,
+          handlers: { event: 1, fx: 1, cofx: 0, sub: 1 },
+          stateAvailable: true,
+          traceCount: 0,
+        });
+        return;
+      }
+
       if (req.method === 'GET' && url.pathname === '/api/handlers') {
         sendJson(res, 200, {
           success: true,
@@ -130,6 +149,7 @@ test('stdio MCP server lists tools and dispatches events through the DevTools HT
     assert.deepEqual(
       tools.tools.map((tool) => tool.name).sort(),
       [
+        'app_status',
         'dispatch_event',
         'get_active_subs',
         'get_app_state',
@@ -147,6 +167,14 @@ test('stdio MCP server lists tools and dispatches events through the DevTools HT
       assert.ok(instructions.includes(tool.name), `instructions should mention ${tool.name}`);
     }
     assert.match(instructions, /--mcp/);
+
+    const status = parseToolResult(await client.callTool({
+      name: 'app_status',
+      arguments: {},
+    }));
+    assert.equal(status.appConnected, true);
+    assert.equal(status.runtime, 'headless');
+    assert.equal(status.sessionEpoch, 1);
 
     const handlers = parseToolResult(await client.callTool({
       name: 'get_handlers',

@@ -90,6 +90,14 @@ export class DevToolsAPIClient {
     return response.json();
   }
 
+  async getStatus(): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/api/status`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  }
+
   async checkHealth(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/health`);

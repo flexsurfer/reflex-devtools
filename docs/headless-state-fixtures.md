@@ -74,6 +74,190 @@ Current trace storage is session-scoped and is cleared on SDK reconnect. Fixture
 
 ---
 
+## Side-effect policy
+
+Headless mode must not import the same browser adapters blindly. The shared application logic is:
+
+```text
+db
+events
+subs
+ids
+typed payload maps
+```
+
+The runtime-specific layer is:
+
+```text
+effects
+coeffects
+environment adapters
+```
+
+A scaffolded project should make that split explicit (✅ the convention ships as a reference implementation in `reflex-test-app` — `src/headless.ts` under `pnpm dev:headless`):
+
+```text
+src/
+  db.ts
+  event-ids.ts
+  events.ts
+  sub-ids.ts
+  subs.ts
+  effect-ids.ts
+  coeffect-ids.ts
+
+  effects.browser.ts
+  effects.headless.ts
+  coeffects.browser.ts
+  coeffects.headless.ts
+
+  main.tsx
+  headless.ts
+```
+
+Browser entry:
+
+```ts
+import './db';
+import './events';
+import './subs';
+import './effects.browser';
+import './coeffects.browser';
+```
+
+Headless entry:
+
+```ts
+import './db';
+import './events';
+import './subs';
+import './effects.headless';
+import './coeffects.headless';
+```
+
+The event handler still emits the same effect contract:
+
+```ts
+return [[EFFECT_IDS.LOCAL_STORAGE_SET, { key, value }]];
+```
+
+The browser adapter writes to real `localStorage`; the headless adapter writes to a memory store, a fixture store, or no-ops depending on the effect type.
+
+### Headless effect modes
+
+#### No-op
+
+Use for effects where the agent usually only needs to observe that the effect was emitted:
+
+```ts
+regEffect(EFFECT_IDS.ANALYTICS_TRACK, () => {
+  // no-op in headless
+});
+```
+
+Typical examples: analytics, focus, scroll, notification banners, clipboard, and fire-and-forget UI affordances.
+
+#### In-memory adapter
+
+Use for browser state that participates in the application's behavior:
+
+```ts
+const memoryStorage = new Map<string, string>();
+
+regEffect(EFFECT_IDS.LOCAL_STORAGE_SET, ({ key, value }) => {
+  memoryStorage.set(key, JSON.stringify(value));
+});
+
+regCoeffect(COEFFECT_IDS.LOCAL_STORAGE_GET, (cofx, key) => {
+  cofx.localStorageValue = memoryStorage.get(key) ?? null;
+  return cofx;
+});
+```
+
+Typical examples: local storage, session storage, routing state, feature flags, and other local environment reads.
+
+#### Deterministic adapter
+
+Use for values that must be repeatable across scenario runs:
+
+```ts
+regCoeffect(COEFFECT_IDS.NOW, (cofx) => {
+  cofx.now = headlessClock.now();
+  return cofx;
+});
+```
+
+Typical examples: clocks, random numbers, generated ids, and timers. The scenario runner should be able to set clock/random seeds.
+
+#### Fixture-backed network
+
+Do not make real network calls by default in headless agent mode. Register HTTP effects against fixtures:
+
+```ts
+regEffect(EFFECT_IDS.HTTP_REQUEST, (req) => {
+  const response = httpFixtures.match(req);
+  dispatch([req.onSuccess, response]);
+});
+```
+
+Recommended network modes:
+
+```text
+stub        -> no-op or deterministic response
+record      -> real call once, save fixture
+replay      -> use saved fixture
+passthrough -> real external IO, explicit opt-in only
+```
+
+The default for AI work should be `stub` or `replay`, not `passthrough`.
+
+### Safety rules
+
+Headless agent mode should be safe by default:
+
+- no real browser APIs;
+- no real analytics;
+- no real navigation;
+- no real external network unless explicitly enabled;
+- no hidden writes outside fixture storage;
+- every effect id has either a browser adapter or a headless adapter;
+- browser-only effects are never registered from `headless.ts`.
+
+`dispatch_event` still verifies the effect contract even when the adapter is stubbed:
+
+```json
+{
+  "stateChanges": [{ "op": "replace", "path": ["selectedCategory"], "value": "food" }],
+  "effectsEmitted": [
+    ["local-storage-set", { "key": "expenses.category", "value": "food" }]
+  ],
+  "effectErrors": []
+}
+```
+
+So the agent can prove "the handler emitted the right effect" without touching the real external world.
+
+### Runtime visibility
+
+✅ *Shipped:* `app_status` reports the active runtime and effect modes, exactly as the app's entry declared them to `enableDevtools`:
+
+```text
+app_status {}
+-> {
+    runtime: "headless",
+    effectMode: "safe",
+    effects: {
+      "local-storage-set": "memory",
+      "http-request": "fixture",
+      "analytics-track": "noop"
+    }
+  }
+```
+
+This tells the agent which effects are actually executed, which are fixture-backed, and which are only observed.
+
+---
+
 ## Tool set
 
 ### `snapshot_state`
@@ -429,7 +613,9 @@ State snapshots may contain user data, tokens, or local test secrets. Guardrails
 - Add `snapshot_state`, `list_snapshots`, `delete_snapshot`.
 - Add SDK restore protocol.
 - Add `restore_state`.
-- Include `sessionEpoch` and staleness warnings in every response.
+- Include `sessionEpoch` and staleness warnings in every response. *(sessionEpoch exists and rides `app_status` today; every-response propagation is still open)*
+- ~~Scaffold `effects.headless.ts` and `coeffects.headless.ts` with safe defaults for common browser APIs.~~ ✅ shipped (reference scaffold in `reflex-test-app`)
+- ~~Make `app_status` report `runtime`, `effectMode`, and registered effect adapter modes.~~ ✅ shipped
 
 ### P1: Scenario runner
 
@@ -437,6 +623,7 @@ State snapshots may contain user data, tokens, or local test secrets. Guardrails
 - Add `replay_events`.
 - Add `save_scenario` and `run_scenario`.
 - Allow scenario checks to include `eval_sub`.
+- Add fixture-backed network modes: `stub`, `record`, `replay`, and explicit `passthrough`.
 
 ### P2: Durability and migrations
 
@@ -444,6 +631,7 @@ State snapshots may contain user data, tokens, or local test secrets. Guardrails
 - Snapshot redaction hooks.
 - App-provided db version/migration hooks.
 - `appMapHash` and schema compatibility checks.
+- App-provided redaction and adapter-policy hooks for sensitive side-effect payloads.
 
 ---
 

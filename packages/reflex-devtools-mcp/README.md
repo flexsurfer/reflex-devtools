@@ -30,11 +30,14 @@ The Reflex DevTools MCP Server acts as a bridge between AI assistants and your r
 ```
 
 AI assistants can:
+- 🩺 **Check app health in one call** - Is an app connected, browser or headless, tracing on, and did the session restart since the last look
 - 📊 **Inspect execution traces** - Compact trace lists plus per-trace detail (state patches, effects, errors)
 - 🔍 **Query application state** - Examine the current app database
 - 🚀 **Dispatch events and observe the outcome** - Trigger a handler and get back the state diff it committed, the effects it emitted, or the error if it failed
 - 📚 **List handlers** - See all registered event handlers, effects, and subscriptions
 - ⚡ **Monitor subscriptions** - View active reactive queries
+
+The app does not have to be a browser tab: a **headless runtime** (see below) connects the same way, so the whole loop works in CI and autonomous agent sessions with no browser at all.
 
 ---
 
@@ -65,7 +68,7 @@ AI assistants can:
 
    > **⚠️ Security note:** DevTools and its MCP API are development-only and unauthenticated — `/api/dispatch` can mutate application state. Never expose the server to the public internet; keep it on `localhost` or a trusted local network.
 
-4. **Start your Reflex application**
+4. **Start your Reflex application** — a browser tab, or a headless entry (`src/headless.ts` under `tsx`/`vite-node`) for browserless agent work; see [Headless runtime](#-headless-runtime-for-autonomous-agent-loops)
 
 ### Install MCP Server
 
@@ -151,9 +154,26 @@ Cursor IDE also supports MCP servers. Add to your Cursor settings:
 
 ## 🛠️ Available MCP Tools
 
-The server also advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: discover handlers first, read state by path, act with `dispatch_event`, verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
+The server also advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: check `app_status` first, discover handlers, read state by path, act with `dispatch_event`, verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
 
-### 1. `get_traces`
+### 1. `app_status`
+
+Cheap health/session check — the intended first call after a cold start and after every app reload. Reports:
+
+- `appConnected` — is any app (browser or headless) connected to the DevTools server
+- `sessionEpoch` — bumps every time the app reconnects; if it changed since your last look, the app restarted: trace ids reset, stored traces cleared, seeded state gone
+- `runtime` — `"browser"`, `"react-native"`, or `"headless"`, plus `effectMode` and per-effect adapter modes when the app declares them
+- `tracing`, handler counts per type, `stateAvailable`, `traceCount`, `mcpEnabled`
+
+Degraded setups come back with explicit hints (server started without `--mcp`, no app connected) instead of errors.
+
+**Parameters:** none
+
+**Example prompts for Claude:**
+- "Is my app connected and healthy?"
+- "Did the app restart since we last checked?"
+
+### 2. `get_traces`
 
 List execution traces from your application as compact rows: id, operation, opType, duration, timestamp, and event args. Failed events carry an `error` summary; events whose effects threw carry an `effectErrors` count. Use `get_trace` with a row's id for full detail.
 
@@ -168,7 +188,7 @@ List execution traces from your application as compact rows: id, operation, opTy
 - "Find all traces with duration over 100ms"
 - "Show me traces for the 'fetch-user' event"
 
-### 2. `get_trace`
+### 3. `get_trace`
 
 Get the full detail of a single trace by id: for events, the state patches committed, the effects emitted, and error details (message, stack, failing interceptor) if it failed.
 
@@ -179,7 +199,7 @@ Get the full detail of a single trace by id: for events, the state patches commi
 - "Show me the full detail of trace 42"
 - "What state changes did that failed event make before throwing?"
 
-### 3. `get_app_state`
+### 4. `get_app_state`
 
 Retrieve the current application database state.
 
@@ -191,7 +211,7 @@ Retrieve the current application database state.
 - "Show me the user profile data"
 - "What's in the items array?"
 
-### 4. `dispatch_event`
+### 5. `dispatch_event`
 
 Dispatch an event to the application and observe what it did. The response reports the outcome derived from the event's trace:
 
@@ -212,7 +232,7 @@ This tool requires the DevTools server to be started with `--mcp`.
 - "Trigger the 'clear-cache' event and tell me what state it changed"
 - "Call 'update-settings' with dark mode enabled"
 
-### 5. `get_handlers`
+### 6. `get_handlers`
 
 List all registered handler ids, grouped by handler type.
 
@@ -224,7 +244,7 @@ List all registered handler ids, grouped by handler type.
 - "List all registered effects"
 - "Show me the subscription handlers"
 
-### 6. `get_active_subs`
+### 7. `get_active_subs`
 
 View currently active subscription reactions.
 
@@ -234,6 +254,41 @@ View currently active subscription reactions.
 **Example prompts for Claude:**
 - "What subscriptions are currently active?"
 - "Show me user-related subscriptions"
+
+---
+
+## 🧪 Headless runtime for autonomous agent loops
+
+Reflex's state layer is React-free, so the app an agent drives does not need a browser tab. The convention is a `src/headless.ts` entry that imports the same state modules as `main.tsx` — just with Node-safe side-effect adapters and no React mount:
+
+```typescript
+// src/headless.ts — run under tsx (or vite-node when your project
+// resolves dependencies through vite aliases)
+import { enableTracing } from '@flexsurfer/reflex';
+import { enableDevtools } from '@flexsurfer/reflex-devtools';
+import './db';
+import './events';
+import './subs';
+import './effects.headless';    // memory/no-op adapters instead of effects.browser
+import './coeffects.headless';
+
+enableTracing();
+enableDevtools({
+  // runtime: 'headless' is auto-detected (no window)
+  effectMode: 'safe',
+  effects: { 'local-storage-set': 'memory', 'analytics-track': 'noop' }
+});
+
+setInterval(() => {}, 60_000); // keep the process alive if the server is down
+```
+
+Split runtime-specific side effects into adapter pairs so the headless world is safe by default: `effects.browser.ts` / `effects.headless.ts` and `coeffects.browser.ts` / `coeffects.headless.ts` register the **same effect ids** with different implementations (real `localStorage` vs an in-memory map, real analytics vs no-op). Handlers emit the same effect contract either way, and `dispatch_event` still reports the emitted effects, so an agent can verify "the handler emitted the right effect" without touching the real world. The `effects` map passed to `enableDevtools` is surfaced through `app_status` so agents can see which effects really execute.
+
+Run it with a watcher for the edit → reload → re-verify loop (`tsx watch src/headless.ts`); each reload reconnects the SDK, which bumps `sessionEpoch` — visible in the next `app_status` call. The DevTools server enforces a single app session: a new connection supersedes the previous one, so a lingering older runtime can never double-execute dispatched events, and dispatches still in flight across a reload come back `outcome: "unknown"` ("session restarted") instead of hanging.
+
+Headless mode needs **Node.js 22+** (the SDK uses the global `WebSocket`, stable since Node 22). On older Node it disables itself with an explicit warning.
+
+The [reflex-test-app](../reflex-test-app) in this repo is the reference implementation (`pnpm dev:headless`).
 
 ---
 
@@ -432,6 +487,7 @@ packages/reflex-devtools-mcp/
 │   ├── cli.ts             # CLI entry point
 │   ├── httpClient.ts      # HTTP client for DevTools API
 │   └── tools/             # MCP tool implementations
+│       ├── appStatus.ts
 │       ├── getTraces.ts
 │       ├── getTrace.ts
 │       ├── getAppState.ts

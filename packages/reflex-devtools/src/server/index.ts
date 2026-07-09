@@ -30,6 +30,10 @@ export class DevtoolsServer {
   private uiPath: string;
   private pendingDispatches: Map<number, { res: Response; timeout: NodeJS.Timeout }> = new Map();
   private nextDispatchId = 1;
+  // Bumped every time an SDK client connects (which also clears storage):
+  // any change tells an agent "the app restarted — trace ids reset, seeded
+  // state is gone". 0 means no app has connected since the server started.
+  private sessionEpoch = 0;
 
   constructor(config: ServerConfig) {
     this.config = {
@@ -87,10 +91,44 @@ export class DevtoolsServer {
 
     // Health check endpoint
     this.app.get('/health', (_req: Request, res: Response) => {
-      res.json({ 
-        status: 'ok', 
+      res.json({
+        status: 'ok',
         connectedClients: this.uiClients.size,
         timestamp: Date.now()
+      });
+    });
+
+    // MCP API: App/session status — the cheap health check agents call first.
+    // Deliberately not gated on --mcp: when the server is misconfigured this
+    // response is the diagnosis, not a 503. Runtime/handler details come from
+    // storage (SDK-fed), so without --mcp they are simply null.
+    this.app.get('/api/status', (_req: Request, res: Response) => {
+      const connectedApps = [...this.sdkClients]
+        .filter(client => client.readyState === WebSocket.OPEN).length;
+      const runtimeInfo = this.storage?.getRuntimeInfo() ?? null;
+      const handlerKeys = this.storage?.getHandlerKeys() ?? null;
+
+      res.json({
+        success: true,
+        mcpEnabled: !!this.config.enableMCP,
+        appConnected: connectedApps > 0,
+        connectedApps,
+        connectedUIs: this.uiClients.size,
+        sessionEpoch: this.sessionEpoch,
+        runtime: runtimeInfo?.runtime ?? null,
+        effectMode: runtimeInfo?.effectMode ?? null,
+        effects: runtimeInfo?.effects ?? null,
+        tracing: runtimeInfo?.tracing ?? null,
+        handlers: handlerKeys
+          ? {
+              event: handlerKeys.event.length,
+              fx: handlerKeys.fx.length,
+              cofx: handlerKeys.cofx.length,
+              sub: handlerKeys.sub.length
+            }
+          : null,
+        stateAvailable: this.storage ? this.storage.getAppState() !== null : false,
+        traceCount: this.storage ? this.storage.getStats().totalTraces : 0
       });
     });
 
@@ -418,6 +456,12 @@ export class DevtoolsServer {
             this.storage.updateHandlerKeys(event.payload);
           }
           break;
+
+        case 'reflex-runtime-info':
+          if (event.payload) {
+            this.storage.updateRuntimeInfo(event.payload);
+          }
+          break;
       }
     } catch (error) {
       console.error('[Reflex Devtools] Error processing event:', error);
@@ -432,13 +476,36 @@ export class DevtoolsServer {
         // Connection from client SDK
         console.log('[Reflex Devtools] SDK client connected');
 
+        // Every SDK connection is a new app session: bump the epoch so agents
+        // can detect the restart from any subsequent /api/status call.
+        this.sessionEpoch++;
+
         // Clear storage on client reconnect (new session)
         if (this.storage) {
           this.storage.clear();
           console.log('[Reflex Devtools] Storage cleared - new client session');
         }
 
+        // Dispatches still awaiting an outcome were sent to the previous
+        // session; this session will never answer them. Fail them now rather
+        // than let them ride the 5s timeout — or worse, let a late result
+        // from the dying session (its client falls back to HTTP once the
+        // socket dies) report success about a world that was just reset.
+        this.failPendingDispatches('App session restarted before the dispatch outcome was observed');
+
+        // Single-app session model: storage mirrors exactly one app and every
+        // dispatch is broadcast, so a lingering older connection would double-
+        // execute events (a forgotten browser tab, or a headless watcher
+        // re-running the entry in the same process). The newest connection
+        // supersedes all previous ones. Add the new socket first so the stale
+        // sockets' close handlers never see an empty set and fail dispatches.
+        const staleSdkClients = [...this.sdkClients];
         this.sdkClients.add(ws);
+        for (const stale of staleSdkClients) {
+          console.log('[Reflex Devtools] Terminating previous SDK client (superseded by new session)');
+          this.sdkClients.delete(stale);
+          stale.terminate();
+        }
 
         // Send connection status to newly connected SDK client
         // If MCP is enabled, treat it as if there's always a UI connected to trigger state sending

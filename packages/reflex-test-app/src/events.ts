@@ -123,6 +123,24 @@ regEvent('create-complex-map-set-structure', ({draftDb}) => {
   draftDb.complexData.set('settings', settingsMap);
 });
 
+// Persistence pair exercising the browser/headless effect adapter split:
+// the handlers only emit/consume the effect contract; whether that hits
+// window.localStorage or an in-memory map is decided by which adapter
+// module the entry point imported (effects.browser.ts vs effects.headless.ts).
+regEvent('persist-counter', ({draftDb}) => {
+  return [
+    ['local-storage-set', { key: 'test-app.counter', value: draftDb.counter }],
+    ['set-document-title', `Counter: ${draftDb.counter}`]
+  ];
+});
+
+regEvent('load-counter', ({draftDb, localStorageValue}) => {
+  if (localStorageValue != null) {
+    draftDb.counter = JSON.parse(localStorageValue);
+  }
+}, [['local-storage-get', 'test-app.counter']]);
+
+// Runtime-agnostic effect, registered once for both runtimes
 regEffect('fake-effect', (param) => {
   console.log('fake-effect', param);
 });

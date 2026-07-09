@@ -6,6 +6,8 @@ import './index.css';
 import './db';
 import './events';
 import './subs';
+import './effects.browser';
+import './coeffects.browser';
 import App from './App';
 
 enableTracing();

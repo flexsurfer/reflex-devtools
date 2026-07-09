@@ -26,6 +26,7 @@ Reflex DevTools is a powerful debugging toolkit for applications built with the 
 - **🔥 Real-time Reactions and Render Tracing** - Watch all reactions being created and run, and rendering processes
 - **⏱ Performance Profiling** - Analyze events and reactions times and bottlenecks in real-time
 - **🤖 AI-Powered Debugging** - MCP integration enables AI assistants like Claude or Cursor to inspect traces and dispatch events
+- **🧪 Headless Runtime Support** - Run the state layer under Node (`tsx`/`vite-node`) with no browser: the same SDK, tools, and traces, for CI and autonomous agent loops
 - **🎨 Beautiful Dashboard** - Clean, modern UI with dark/light theme support
 - **📱 React & React Native Support** - Works seamlessly with both platforms
 - **⚡ Zero Configuration** - Get started with just two lines of code
@@ -166,6 +167,14 @@ Reflex DevTools now supports the [Model Context Protocol (MCP)](https://modelcon
 
 📚 **[Full MCP Documentation →](packages/reflex-devtools-mcp/README.md)**
 
+### Headless runtime (no browser required)
+
+The Reflex state layer is React-free, so agents and CI don't need a browser tab to run the app. Add a `src/headless.ts` entry that imports your `db`/`events`/`subs` plus Node-safe side-effect adapters (`effects.headless.ts` / `coeffects.headless.ts` twins of your browser adapters), calls `enableTracing()` + `enableDevtools()`, and run it under `tsx watch` (or `vite-node --watch`). The SDK auto-detects `runtime: 'headless'`, connects over WebSocket exactly like a browser tab, and every MCP tool works against it — the `app_status` tool reports the runtime, the effect adapter modes, and a `sessionEpoch` that bumps on every reload so agents notice restarts.
+
+Headless mode requires **Node.js 22+**: the SDK connects through the global `WebSocket` (stable since Node 22; browsers and React Native provide it natively). On an older Node the SDK refuses to start with an explicit warning instead of half-working.
+
+See [reflex-test-app](packages/reflex-test-app) for the reference scaffold (`pnpm dev:testapp:headless`) and the [MCP README](packages/reflex-devtools-mcp/README.md#-headless-runtime-for-autonomous-agent-loops) for the adapter-split convention.
+
 ---
 
 ## 🔧 Configuration Options
@@ -176,6 +185,15 @@ Reflex DevTools now supports the [Model Context Protocol (MCP)](https://modelcon
 interface DevtoolsConfig {
   serverUrl?: string;  // Default: 'localhost:4000'
   enabled?: boolean;   // Default: true
+
+  // Runtime self-description, surfaced to agents via the MCP app_status tool.
+  // Auto-detected: 'react-native' via navigator.product, 'headless' when there
+  // is no window (Node under tsx/vite-node), 'browser' otherwise.
+  runtime?: 'browser' | 'headless' | 'react-native';
+  // Free-form side-effect policy label, e.g. 'real' or 'safe'
+  effectMode?: string;
+  // Adapter mode per effect/coeffect id, e.g. { 'local-storage-set': 'memory' }
+  effects?: Record<string, string>;
 }
 ```
 
@@ -230,7 +248,7 @@ We welcome contributions! Here's how to get started:
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+ (22+ for the headless test app — the SDK needs the global `WebSocket` there)
 - pnpm (recommended) or npm/yarn
 
 ### Setup Development Environment
@@ -286,6 +304,7 @@ pnpm test
 pnpm dev:ui            # Start UI in development mode
 pnpm dev:server        # Start DevTools server (use --mcp for MCP support)
 pnpm dev:testapp       # Start test app
+pnpm dev:testapp:headless  # Start test app headless (no browser, vite-node --watch)
 pnpm dev:mcp           # Start MCP server in dev mode
 pnpm start:mcp         # Start MCP server (production)
 

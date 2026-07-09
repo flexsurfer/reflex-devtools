@@ -72,6 +72,148 @@ function postDispatch(baseUrl, eventName, params = []) {
   });
 }
 
+async function getStatus(baseUrl) {
+  const response = await fetch(`${baseUrl}/api/status`);
+  assert.equal(response.status, 200);
+  return response.json();
+}
+
+// Poll /api/status until `predicate` holds — WebSocket processing is async
+// relative to HTTP, so tests can't assert immediately after socket.send.
+async function waitForStatus(baseUrl, predicate, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  let status = await getStatus(baseUrl);
+  while (!predicate(status)) {
+    assert(Date.now() < deadline, `status never satisfied predicate: ${JSON.stringify(status)}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    status = await getStatus(baseUrl);
+  }
+  return status;
+}
+
+test('/api/status answers without MCP instead of a 503', async () => {
+  const { baseUrl } = await startServer({ enableMCP: false });
+
+  const status = await getStatus(baseUrl);
+
+  assert.equal(status.success, true);
+  assert.equal(status.mcpEnabled, false);
+  assert.equal(status.appConnected, false);
+  assert.equal(status.sessionEpoch, 0);
+  assert.equal(status.runtime, null);
+  assert.equal(status.handlers, null);
+});
+
+test('/api/status reports runtime info and bumps sessionEpoch per SDK session', async () => {
+  const { baseUrl, wsUrl } = await startServer();
+
+  // Before any app connects
+  let status = await getStatus(baseUrl);
+  assert.equal(status.mcpEnabled, true);
+  assert.equal(status.appConnected, false);
+  assert.equal(status.sessionEpoch, 0);
+  assert.equal(status.stateAvailable, false);
+
+  // First SDK session reports a headless runtime with safe adapters
+  const socket = await connectSdk(wsUrl, () => {});
+  sendSdkEvent(socket, {
+    type: 'reflex-runtime-info',
+    payload: {
+      runtime: 'headless',
+      effectMode: 'safe',
+      effects: { 'local-storage-set': 'memory', 'set-document-title': 'noop' },
+      tracing: true,
+    },
+  });
+  sendSdkEvent(socket, {
+    type: 'reflex-handler-keys',
+    payload: { event: ['a', 'b'], fx: ['c'], cofx: [], sub: ['d', 'e', 'f'] },
+  });
+
+  status = await waitForStatus(baseUrl, (s) => s.runtime !== null && s.handlers !== null);
+  assert.equal(status.appConnected, true);
+  assert.equal(status.sessionEpoch, 1);
+  assert.equal(status.runtime, 'headless');
+  assert.equal(status.effectMode, 'safe');
+  assert.deepEqual(status.effects, {
+    'local-storage-set': 'memory',
+    'set-document-title': 'noop',
+  });
+  assert.equal(status.tracing, true);
+  assert.deepEqual(status.handlers, { event: 2, fx: 1, cofx: 0, sub: 3 });
+
+  // A reconnect is a new session: epoch bumps, stale runtime info is gone
+  socket.close();
+  await waitForStatus(baseUrl, (s) => s.appConnected === false);
+
+  await connectSdk(wsUrl, () => {});
+  status = await waitForStatus(baseUrl, (s) => s.appConnected === true);
+  assert.equal(status.sessionEpoch, 2);
+  assert.equal(status.runtime, null);
+  assert.equal(status.handlers, null);
+});
+
+test('a new SDK connection supersedes the previous one instead of double-dispatching', async () => {
+  const { baseUrl, wsUrl } = await startServer();
+
+  let firstClientDispatches = 0;
+  const firstSocket = await connectSdk(wsUrl, () => {
+    firstClientDispatches++;
+  });
+  const firstClosed = new Promise((resolve) => firstSocket.once('close', resolve));
+
+  await connectSdk(wsUrl, (message, socket) => {
+    const trace = {
+      id: 1,
+      opType: 'event',
+      operation: 'increment-counter',
+      start: Date.now(),
+      duration: 1,
+      tags: { event: ['increment-counter'], patches: [], effects: [] },
+    };
+    sendSdkEvent(socket, {
+      type: 'reflex-dispatch-result',
+      payload: { dispatchId: message.payload.dispatchId, trace },
+    });
+  });
+
+  // The server terminates the stale first connection...
+  await firstClosed;
+  const status = await waitForStatus(baseUrl, (s) => s.connectedApps === 1);
+  assert.equal(status.sessionEpoch, 2);
+
+  // ...so a dispatch reaches only the new session's app.
+  const response = await postDispatch(baseUrl, 'increment-counter');
+  const body = await response.json();
+
+  assert.equal(body.outcome, 'succeeded');
+  assert.equal(firstClientDispatches, 0);
+});
+
+test('a session restart fails in-flight dispatches instead of leaving them to time out', async () => {
+  const { baseUrl, wsUrl } = await startServer();
+
+  // First session receives the dispatch but never reports an outcome
+  let dispatchDelivered;
+  const delivered = new Promise((resolve) => { dispatchDelivered = resolve; });
+  await connectSdk(wsUrl, () => dispatchDelivered());
+
+  const responsePromise = postDispatch(baseUrl, 'increment-counter');
+  await delivered;
+
+  // App restarts mid-flight: a new SDK session connects
+  await connectSdk(wsUrl, () => {});
+
+  const response = await responsePromise;
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.outcome, 'unknown');
+  // The session-boundary message, not the 5s "no trace" timeout and not the
+  // all-clients-gone disconnect message.
+  assert.match(body.message, /session restarted/);
+});
+
 test('/api/dispatch requires MCP mode', async () => {
   const { baseUrl } = await startServer({ enableMCP: false });
 

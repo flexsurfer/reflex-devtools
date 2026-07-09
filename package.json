@@ -14,6 +14,7 @@
     "dev:ui": "pnpm --filter reflex-devtool-ui dev",
     "dev:server": "pnpm --filter @flexsurfer/reflex-devtools start",
     "dev:testapp": "pnpm --filter reflex-test-app dev",
+    "dev:testapp:headless": "pnpm --filter reflex-test-app dev:headless",
     "dev:mcp": "pnpm --filter @flexsurfer/reflex-devtools-mcp dev",
     "start:mcp": "pnpm --filter @flexsurfer/reflex-devtools-mcp start",
     "clean": "pnpm dlx rimraf node_modules dist packages/*/node_modules packages/*/dist"

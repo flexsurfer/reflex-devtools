@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { DevToolsAPIClient } from '../dist/httpClient.js';
+import { appStatusTool } from '../dist/tools/appStatus.js';
 import { dispatchEventTool } from '../dist/tools/dispatchEvent.js';
 import { getTraceTool } from '../dist/tools/getTrace.js';
 import { getTracesTool } from '../dist/tools/getTraces.js';
@@ -10,6 +11,72 @@ import { getTracesTool } from '../dist/tools/getTraces.js';
 function parseToolResult(result) {
   return JSON.parse(result.content[0].text);
 }
+
+test('app_status reports a healthy headless session without hints', async () => {
+  const apiClient = {
+    async getStatus() {
+      return {
+        success: true,
+        mcpEnabled: true,
+        appConnected: true,
+        connectedApps: 1,
+        connectedUIs: 0,
+        sessionEpoch: 3,
+        runtime: 'headless',
+        effectMode: 'safe',
+        effects: { 'local-storage-set': 'memory' },
+        tracing: true,
+        handlers: { event: 14, fx: 3, cofx: 1, sub: 9 },
+        stateAvailable: true,
+        traceCount: 42,
+      };
+    },
+  };
+
+  const body = parseToolResult(await appStatusTool(apiClient).handler({}));
+
+  assert.equal(body.appConnected, true);
+  assert.equal(body.sessionEpoch, 3);
+  assert.equal(body.runtime, 'headless');
+  assert.equal(body.effectMode, 'safe');
+  assert.deepEqual(body.effects, { 'local-storage-set': 'memory' });
+  assert.equal(body.tracing, true);
+  assert.deepEqual(body.handlers, { event: 14, fx: 3, cofx: 1, sub: 9 });
+  assert.equal('hints' in body, false);
+  assert.equal('connectedApps' in body, false);
+});
+
+test('app_status explains a disconnected app and a missing --mcp flag', async () => {
+  const apiClient = {
+    async getStatus() {
+      return {
+        success: true,
+        mcpEnabled: false,
+        appConnected: false,
+        connectedApps: 0,
+        connectedUIs: 0,
+        sessionEpoch: 0,
+        runtime: null,
+        effectMode: null,
+        effects: null,
+        tracing: null,
+        handlers: null,
+        stateAvailable: false,
+        traceCount: 0,
+      };
+    },
+  };
+
+  const body = parseToolResult(await appStatusTool(apiClient).handler({}));
+
+  assert.equal(body.appConnected, false);
+  assert.equal(body.mcpEnabled, false);
+  assert.equal('effectMode' in body, false);
+  assert.equal('effects' in body, false);
+  assert.equal(body.hints.length, 2);
+  assert.match(body.hints[0], /--mcp/);
+  assert.match(body.hints[1], /headless/);
+});
 
 test('get_traces returns compact rows without full trace tags', async () => {
   const apiClient = {

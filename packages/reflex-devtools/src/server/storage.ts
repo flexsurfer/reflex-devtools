@@ -26,11 +26,22 @@ export interface HandlerKeys {
   sub: string[];
 }
 
+// Self-description sent by the SDK: how the app runs (browser tab vs
+// headless process), its side-effect adapter modes, and whether tracing
+// is currently enabled. Cleared with the rest of the session on reconnect.
+export interface RuntimeInfo {
+  runtime?: 'browser' | 'headless' | 'react-native';
+  effectMode?: string;
+  effects?: Record<string, string>;
+  tracing?: boolean;
+}
+
 export class TraceStorage {
   private traces: Trace[] = [];
   private appState: any = null;
   private activeSubs: Record<string, any> = {};
   private handlerKeys: HandlerKeys | null = null;
+  private runtimeInfo: RuntimeInfo | null = null;
   private readonly maxTraces: number;
 
   constructor(maxTraces: number = 1000) {
@@ -78,6 +89,10 @@ export class TraceStorage {
 
   updateHandlerKeys(keys: HandlerKeys): void {
     this.handlerKeys = keys;
+  }
+
+  updateRuntimeInfo(info: RuntimeInfo): void {
+    this.runtimeInfo = info;
   }
 
   getTraces(options: {
@@ -132,6 +147,10 @@ export class TraceStorage {
     return this.handlerKeys;
   }
 
+  getRuntimeInfo(): RuntimeInfo | null {
+    return this.runtimeInfo;
+  }
+
   getStats(): {
     totalTraces: number;
     eventTraces: number;
@@ -152,6 +171,7 @@ export class TraceStorage {
     this.appState = null;
     this.activeSubs = {};
     this.handlerKeys = null;
+    this.runtimeInfo = null;
   }
 }
 
