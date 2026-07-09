@@ -4,6 +4,7 @@
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
+import { serverUnavailableResult } from './errorResponse.js';
 
 export interface DispatchEventParams {
   eventName: string;
@@ -74,6 +75,9 @@ export function dispatchEventTool(apiClient: DevToolsAPIClient) {
           ]
         };
       } catch (error) {
+        const unavailable = serverUnavailableResult(error, 'dispatch_event');
+        if (unavailable) return unavailable;
+
         return {
           content: [
             {

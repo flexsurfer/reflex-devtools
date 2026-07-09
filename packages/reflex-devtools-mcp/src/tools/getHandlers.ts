@@ -4,6 +4,7 @@
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
+import { serverUnavailableResult } from './errorResponse.js';
 
 export interface GetHandlersParams {
   type?: 'event' | 'fx' | 'cofx' | 'sub';
@@ -67,6 +68,9 @@ export function getHandlersTool(apiClient: DevToolsAPIClient) {
           ]
         };
       } catch (error) {
+        const unavailable = serverUnavailableResult(error, 'get_handlers');
+        if (unavailable) return unavailable;
+
         return {
           content: [
             {
@@ -84,4 +88,3 @@ export function getHandlersTool(apiClient: DevToolsAPIClient) {
     }
   };
 }
-

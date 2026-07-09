@@ -4,6 +4,7 @@
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
+import { serverUnavailableResult } from './errorResponse.js';
 
 export interface GetTraceParams {
   id: number;
@@ -42,6 +43,9 @@ export function getTraceTool(apiClient: DevToolsAPIClient) {
           ]
         };
       } catch (error) {
+        const unavailable = serverUnavailableResult(error, 'get_trace');
+        if (unavailable) return unavailable;
+
         return {
           content: [
             {

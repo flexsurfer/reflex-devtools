@@ -4,6 +4,7 @@
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
+import { serverUnavailableResult } from './errorResponse.js';
 
 export interface GetAppStateParams {
   path?: string;
@@ -91,6 +92,9 @@ export function getAppStateTool(apiClient: DevToolsAPIClient) {
         ]
       };
       } catch (error) {
+        const unavailable = serverUnavailableResult(error, 'get_app_state');
+        if (unavailable) return unavailable;
+
         return {
           content: [
             {
@@ -108,4 +112,3 @@ export function getAppStateTool(apiClient: DevToolsAPIClient) {
     }
   };
 }
-

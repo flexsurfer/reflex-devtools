@@ -2,9 +2,10 @@ import { createServer } from 'node:http';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DevToolsAPIClient } from '../dist/httpClient.js';
+import { DevToolsAPIClient, DevToolsServerUnavailableError } from '../dist/httpClient.js';
 import { appStatusTool } from '../dist/tools/appStatus.js';
 import { dispatchEventTool } from '../dist/tools/dispatchEvent.js';
+import { getHandlersTool } from '../dist/tools/getHandlers.js';
 import { getTraceTool } from '../dist/tools/getTrace.js';
 import { getTracesTool } from '../dist/tools/getTraces.js';
 
@@ -76,6 +77,24 @@ test('app_status explains a disconnected app and a missing --mcp flag', async ()
   assert.equal(body.hints.length, 2);
   assert.match(body.hints[0], /--mcp/);
   assert.match(body.hints[1], /headless/);
+});
+
+test('get_handlers tells the agent how to start the DevTools server when unreachable', async () => {
+  const apiClient = {
+    async getHandlers() {
+      throw new DevToolsServerUnavailableError('127.0.0.1:4000');
+    },
+  };
+
+  const result = await getHandlersTool(apiClient).handler({ type: 'event' });
+  const body = parseToolResult(result);
+
+  assert.equal(result.isError, true);
+  assert.equal(body.error, 'No Reflex DevTools server is connected.');
+  assert.match(body.message, /Start it in the project root with: npx reflex-devtools --mcp/);
+  assert.match(body.message, /Then reload the app and retry get_handlers\./);
+  assert.equal(body.command, 'npx reflex-devtools --mcp');
+  assert.equal(body.retry, 'get_handlers');
 });
 
 test('get_traces returns compact rows without full trace tags', async () => {

@@ -6,11 +6,45 @@ export interface DevToolsAPIConfig {
   serverUrl: string;
 }
 
+export class DevToolsServerUnavailableError extends Error {
+  constructor(public readonly serverUrl: string) {
+    super('No Reflex DevTools server is connected.');
+    this.name = 'DevToolsServerUnavailableError';
+  }
+}
+
+export function isDevToolsServerUnavailableError(error: unknown): error is DevToolsServerUnavailableError {
+  return error instanceof DevToolsServerUnavailableError;
+}
+
+export function devToolsServerUnavailableBody(retryTool: string) {
+  return {
+    error: 'No Reflex DevTools server is connected.',
+    message: [
+      'No Reflex DevTools server is connected.',
+      'Start it in the project root with: npx reflex-devtools --mcp',
+      `Then reload the app and retry ${retryTool}.`
+    ].join('\n'),
+    command: 'npx reflex-devtools --mcp',
+    retry: retryTool
+  };
+}
+
 export class DevToolsAPIClient {
   private baseUrl: string;
+  private serverUrl: string;
 
   constructor(config: DevToolsAPIConfig) {
+    this.serverUrl = config.serverUrl;
     this.baseUrl = `http://${config.serverUrl}`;
+  }
+
+  private async fetch(path: string, init?: RequestInit): Promise<Response> {
+    try {
+      return await fetch(`${this.baseUrl}${path}`, init);
+    } catch (error) {
+      throw new DevToolsServerUnavailableError(this.serverUrl);
+    }
   }
 
   async getTraces(params: {
@@ -25,7 +59,7 @@ export class DevToolsAPIClient {
     if (params.minDuration) queryParams.append('minDuration', params.minDuration.toString());
     if (params.opType) queryParams.append('opType', params.opType);
 
-    const response = await fetch(`${this.baseUrl}/api/traces?${queryParams}`);
+    const response = await this.fetch(`/api/traces?${queryParams}`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -33,7 +67,7 @@ export class DevToolsAPIClient {
   }
 
   async getTrace(id: number): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/traces/${id}`);
+    const response = await this.fetch(`/api/traces/${id}`);
     if (!response.ok) {
       const body: any = await response.json().catch(() => null);
       throw new Error(body?.error || `HTTP ${response.status}: ${response.statusText}`);
@@ -42,7 +76,7 @@ export class DevToolsAPIClient {
   }
 
   async getAppState(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/state`);
+    const response = await this.fetch('/api/state');
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -50,7 +84,7 @@ export class DevToolsAPIClient {
   }
 
   async getSubscriptions(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/subscriptions`);
+    const response = await this.fetch('/api/subscriptions');
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -59,7 +93,7 @@ export class DevToolsAPIClient {
 
   async getHandlers(type?: string): Promise<any> {
     const queryParams = type ? `?type=${type}` : '';
-    const response = await fetch(`${this.baseUrl}/api/handlers${queryParams}`);
+    const response = await this.fetch(`/api/handlers${queryParams}`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -67,7 +101,7 @@ export class DevToolsAPIClient {
   }
 
   async getStats(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/stats`);
+    const response = await this.fetch('/api/stats');
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -75,7 +109,7 @@ export class DevToolsAPIClient {
   }
 
   async dispatchEvent(eventName: string, params: any[] = []): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/dispatch`, {
+    const response = await this.fetch('/api/dispatch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -91,7 +125,7 @@ export class DevToolsAPIClient {
   }
 
   async getStatus(): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/api/status`);
+    const response = await this.fetch('/api/status');
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
@@ -100,7 +134,7 @@ export class DevToolsAPIClient {
 
   async checkHealth(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/health`);
+      const response = await this.fetch('/health');
       return response.ok;
     } catch (error) {
       return false;

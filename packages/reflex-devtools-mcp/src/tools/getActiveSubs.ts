@@ -4,6 +4,7 @@
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
+import { serverUnavailableResult } from './errorResponse.js';
 
 export interface GetActiveSubsParams {
   filter?: string;
@@ -58,6 +59,9 @@ export function getActiveSubsTool(apiClient: DevToolsAPIClient) {
           ]
         };
       } catch (error) {
+        const unavailable = serverUnavailableResult(error, 'get_active_subs');
+        if (unavailable) return unavailable;
+
         return {
           content: [
             {
@@ -75,4 +79,3 @@ export function getActiveSubsTool(apiClient: DevToolsAPIClient) {
     }
   };
 }
-

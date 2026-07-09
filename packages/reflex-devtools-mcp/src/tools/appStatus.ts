@@ -4,6 +4,7 @@
  */
 
 import { DevToolsAPIClient } from '../httpClient.js';
+import { serverUnavailableResult } from './errorResponse.js';
 
 export function appStatusTool(apiClient: DevToolsAPIClient) {
   return {
@@ -53,6 +54,9 @@ export function appStatusTool(apiClient: DevToolsAPIClient) {
           ]
         };
       } catch (error) {
+        const unavailable = serverUnavailableResult(error, 'app_status');
+        if (unavailable) return unavailable;
+
         return {
           content: [
             {
