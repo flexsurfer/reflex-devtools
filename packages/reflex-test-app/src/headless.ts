@@ -5,7 +5,7 @@
  * side-effect adapters differ (effects.headless / coeffects.headless are
  * Node-safe: memory-backed or no-op). The devtools SDK connects over
  * WebSocket exactly as in the browser, so every MCP tool — app_status,
- * get_app_state, dispatch_event, get_traces — works against this process.
+ * get_app_state, eval_sub, dispatch_event, get_traces — works against this process.
  *
  * Run it (devtools server first, then this; needs Node >= 22 for the
  * global WebSocket the SDK connects through):

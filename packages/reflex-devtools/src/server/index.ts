@@ -18,6 +18,7 @@ export interface ServerConfig {
 // answering with outcome 'unknown'. Traces are debounced 50ms client-side, so
 // a healthy round trip is well under a second.
 const DISPATCH_OUTCOME_TIMEOUT_MS = 5000;
+const SUB_EVAL_TIMEOUT_MS = 5000;
 
 export class DevtoolsServer {
   private app: express.Application;
@@ -30,6 +31,8 @@ export class DevtoolsServer {
   private uiPath: string;
   private pendingDispatches: Map<number, { res: Response; timeout: NodeJS.Timeout }> = new Map();
   private nextDispatchId = 1;
+  private pendingSubEvals: Map<number, { res: Response; timeout: NodeJS.Timeout }> = new Map();
+  private nextSubEvalId = 1;
   // Bumped every time an SDK client connects (which also clears storage):
   // any change tells an agent "the app restarted — trace ids reset, seeded
   // state is gone". 0 means no app has connected since the server started.
@@ -348,6 +351,62 @@ export class DevtoolsServer {
       }
     });
 
+    // MCP API: Evaluate any registered subscription, including one that no
+    // mounted component currently uses. The SDK computes it against the live
+    // app runtime and sends the value back over the same request/result bridge
+    // used by dispatch outcomes.
+    this.app.post('/api/eval-sub', (req: Request, res: Response) => {
+      try {
+        if (!this.config.enableMCP) {
+          res.status(503).json({
+            success: false,
+            error: 'MCP subscription evaluation is disabled. Start reflex-devtools with --mcp to enable /api/eval-sub.'
+          });
+          return;
+        }
+
+        const { id, args } = req.body;
+        if (typeof id !== 'string' || id.trim() === '') {
+          res.status(400).json({ success: false, error: 'id is required' });
+          return;
+        }
+        if (args != null && !Array.isArray(args)) {
+          res.status(400).json({ success: false, error: 'args must be an array' });
+          return;
+        }
+
+        const subArgs = args ?? [];
+        const evalId = this.nextSubEvalId++;
+        const sent = this.broadcastToSDK({
+          type: 'eval-sub-to-client',
+          payload: { evalId, id, args: subArgs },
+          timestamp: Date.now()
+        });
+
+        if (sent === 0) {
+          res.status(503).json({
+            success: false,
+            error: 'No app connected to the devtools server; the subscription was not evaluated'
+          });
+          return;
+        }
+
+        const timeout = setTimeout(() => {
+          this.pendingSubEvals.delete(evalId);
+          res.status(504).json({
+            success: false,
+            error: `Subscription evaluation timed out after ${SUB_EVAL_TIMEOUT_MS}ms`
+          });
+        }, SUB_EVAL_TIMEOUT_MS);
+        this.pendingSubEvals.set(evalId, { res, timeout });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
     // Serve UI dashboard for all other routes
     this.app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.join(this.uiPath, 'index.html'));
@@ -363,6 +422,14 @@ export class DevtoolsServer {
         const event = JSON.parse(rawMessage, reflexReviver);
         if (event.type === 'reflex-dispatch-result') {
           this.resolveDispatch(event.payload);
+          return true;
+        }
+      }
+
+      if (this.pendingSubEvals.size > 0 && rawMessage.includes('reflex-eval-sub-result')) {
+        const event = JSON.parse(rawMessage, reflexReviver);
+        if (event.type === 'reflex-eval-sub-result') {
+          this.resolveSubEval(event.payload);
           return true;
         }
       }
@@ -423,6 +490,35 @@ export class DevtoolsServer {
       clearTimeout(pending.timeout);
       this.pendingDispatches.delete(dispatchId);
       pending.res.json({ success: true, outcome: 'unknown', message: reason });
+    }
+  }
+
+  private resolveSubEval(payload: any): void {
+    const pending = this.pendingSubEvals.get(payload?.evalId);
+    if (!pending) return;
+
+    clearTimeout(pending.timeout);
+    this.pendingSubEvals.delete(payload.evalId);
+
+    if (payload.error) {
+      pending.res.status(payload.error.phase === 'missing-handler' ? 404 : 422).json({
+        success: false,
+        error: payload.error
+      });
+      return;
+    }
+
+    pending.res.type('application/json').send(JSON.stringify({
+      success: true,
+      value: payload.value
+    }, mapSetReflexReplacer));
+  }
+
+  private failPendingSubEvals(reason: string): void {
+    for (const [evalId, pending] of this.pendingSubEvals) {
+      clearTimeout(pending.timeout);
+      this.pendingSubEvals.delete(evalId);
+      pending.res.status(503).json({ success: false, error: reason });
     }
   }
 
@@ -492,6 +588,7 @@ export class DevtoolsServer {
         // from the dying session (its client falls back to HTTP once the
         // socket dies) report success about a world that was just reset.
         this.failPendingDispatches('App session restarted before the dispatch outcome was observed');
+        this.failPendingSubEvals('App session restarted before the subscription evaluation completed');
 
         // Single-app session model: storage mirrors exactly one app and every
         // dispatch is broadcast, so a lingering older connection would double-
@@ -526,6 +623,7 @@ export class DevtoolsServer {
           this.sdkClients.delete(ws);
           if (this.sdkClients.size === 0) {
             this.failPendingDispatches('App disconnected before reporting the dispatch outcome');
+            this.failPendingSubEvals('App disconnected before reporting the subscription value');
           }
         });
 
@@ -534,6 +632,7 @@ export class DevtoolsServer {
           this.sdkClients.delete(ws);
           if (this.sdkClients.size === 0) {
             this.failPendingDispatches('App disconnected before reporting the dispatch outcome');
+            this.failPendingSubEvals('App disconnected before reporting the subscription value');
           }
         });
 

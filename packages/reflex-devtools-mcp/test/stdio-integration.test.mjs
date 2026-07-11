@@ -30,6 +30,7 @@ function sendJson(res, status, body) {
 
 async function startFakeDevtoolsServer() {
   const dispatchRequests = [];
+  const evalSubRequests = [];
 
   const httpServer = createServer(async (req, res) => {
     try {
@@ -99,6 +100,13 @@ async function startFakeDevtoolsServer() {
           patches: [],
           effects: [['fake-effect', 123]],
         });
+      } else if (req.method === 'POST' && url.pathname === '/api/eval-sub') {
+        const body = await readJson(req);
+        evalSubRequests.push(body);
+        sendJson(res, 200, {
+          success: true,
+          value: { counter: 2, multiplier: body.args?.[0] },
+        });
       } else {
         sendJson(res, 404, { success: false, error: `Unhandled ${req.method} ${url.pathname}` });
       }
@@ -120,6 +128,7 @@ async function startFakeDevtoolsServer() {
 
   return {
     dispatchRequests,
+    evalSubRequests,
     port: address.port,
     close: () => new Promise((resolve, reject) => {
       httpServer.close((error) => {
@@ -151,6 +160,7 @@ test('stdio MCP server lists tools and dispatches events through the DevTools HT
       [
         'app_status',
         'dispatch_event',
+        'eval_sub',
         'get_active_subs',
         'get_app_state',
         'get_handlers',
@@ -190,6 +200,13 @@ test('stdio MCP server lists tools and dispatches events through the DevTools HT
     assert.equal(succeeded.traceId, 101);
     assert.deepEqual(succeeded.effectsEmitted, [['fake-effect', 123]]);
 
+    const subValue = parseToolResult(await client.callTool({
+      name: 'eval_sub',
+      arguments: { id: 'counter', args: [3] },
+    }));
+    assert.equal(subValue.id, 'counter');
+    assert.deepEqual(subValue.value, { counter: 2, multiplier: 3 });
+
     const failed = parseToolResult(await client.callTool({
       name: 'dispatch_event',
       arguments: { eventName: 'missing-handler', params: [] },
@@ -201,6 +218,9 @@ test('stdio MCP server lists tools and dispatches events through the DevTools HT
     assert.deepEqual(fakeDevtools.dispatchRequests, [
       { eventName: 'fake-event', params: [2, { name: 'Smoke Test' }] },
       { eventName: 'missing-handler', params: [] },
+    ]);
+    assert.deepEqual(fakeDevtools.evalSubRequests, [
+      { id: 'counter', args: [3] },
     ]);
   } finally {
     await client.close().catch(() => {});

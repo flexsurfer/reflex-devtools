@@ -66,11 +66,12 @@ The plugin starts a version-pinned MCP bridge ([@flexsurfer/reflex-devtools-mcp]
 | `app_status` | Is an app connected? Browser or headless? Did it restart since I last looked? |
 | `get_handlers` | Which event/effect/subscription ids exist? |
 | `get_app_state` | What is the state *at this path* (scoped reads, not full dumps)? |
+| `eval_sub` | What does any registered subscription return, mounted or not? |
 | `get_active_subs` | What are the current values of mounted subscriptions? |
 | `dispatch_event` | Act — and get back the outcome: state patches, emitted effects, or the error |
 | `get_traces` / `get_trace` | What happened recently, including what the agent didn't initiate? |
 
-The key loop is `dispatch_event`: its response already contains the observed outcome (`succeeded` / `failed` / `effects-failed`) with the state diff and effects, so the agent verifies each change without a follow-up state read. A typo'd event id comes back as `missing-handler`, not a silent no-op.
+The write loop is `dispatch_event`: its response already contains the observed outcome (`succeeded` / `failed` / `effects-failed`) with the state diff and effects, so the agent verifies each change without a follow-up state read. The read-side counterpart is `eval_sub`, which proves a derived value before any view mounts it. Typo'd handler ids come back as `missing-handler`, not silent no-ops.
 
 ### Manual setup (Cursor, Claude Desktop, or no plugin)
 

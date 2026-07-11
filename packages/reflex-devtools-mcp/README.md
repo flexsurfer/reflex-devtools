@@ -37,6 +37,7 @@ What agents can do through it:
 - 🩺 **Check app health in one call** — is an app connected, browser or headless, tracing on, and did the session restart since the last look
 - 📊 **Inspect execution traces** — compact trace lists plus per-trace detail (state patches, effects, errors)
 - 🔍 **Query application state** — scoped by path, no full dumps
+- 🧮 **Evaluate subscriptions on demand** — verify derived values before any component mounts them
 - 🚀 **Dispatch events and observe the outcome** — trigger a handler and get back the state diff it committed, the effects it emitted, or the error if it failed
 - 📚 **List handlers** — all registered events, effects, coeffects, and subscriptions
 - ⚡ **Monitor subscriptions** — current values of active reactive queries
@@ -135,7 +136,7 @@ The bridge needs a DevTools server with a connected app to talk to. In the proje
 
 ## 🛠️ Available MCP Tools
 
-The server advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: check `app_status` first, discover handlers, read state by path, act with `dispatch_event`, verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
+The server advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: check `app_status` first, discover handlers, read state by path, evaluate derived values with `eval_sub`, then act with `dispatch_event` and verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
 
 ### 1. `app_status`
 
@@ -232,6 +233,18 @@ View currently active subscription reactions and their current values.
 **Example prompts:**
 - "What subscriptions are currently active?"
 - "Show me user-related subscriptions"
+
+### 8. `eval_sub`
+
+Evaluate any registered subscription against current app state. Unlike `get_active_subs`, the subscription does not need to be mounted by a component.
+
+**Parameters:**
+- `id` (string, required): Registered subscription id
+- `args` (array, optional): Subscription arguments after the id
+
+**Example prompts:**
+- "Evaluate `user-by-id` with argument 123"
+- "What does the new `expenses/category-total` subscription return for `food`?"
 
 ---
 
@@ -380,6 +393,7 @@ packages/reflex-devtools-mcp/
 │       ├── getTraces.ts
 │       ├── getTrace.ts
 │       ├── getAppState.ts
+│       ├── evalSub.ts
 │       ├── dispatchEvent.ts
 │       ├── getHandlers.ts
 │       └── getActiveSubs.ts

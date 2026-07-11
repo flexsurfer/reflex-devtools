@@ -41,7 +41,7 @@ async function startServer(config = {}) {
   };
 }
 
-async function connectSdk(wsUrl, onDispatch) {
+async function connectSdk(wsUrl, onDispatch, onEvalSub = () => {}) {
   const socket = new WebSocket(`${wsUrl}/sdk`);
   activeSockets.add(socket);
 
@@ -54,6 +54,8 @@ async function connectSdk(wsUrl, onDispatch) {
     const message = JSON.parse(data.toString());
     if (message.type === 'dispatch-to-client') {
       onDispatch(message, socket);
+    } else if (message.type === 'eval-sub-to-client') {
+      onEvalSub(message, socket);
     }
   });
 
@@ -69,6 +71,14 @@ function postDispatch(baseUrl, eventName, params = []) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ eventName, params }),
+  });
+}
+
+function postEvalSub(baseUrl, id, args = []) {
+  return fetch(`${baseUrl}/api/eval-sub`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, args }),
   });
 }
 
@@ -386,6 +396,108 @@ test('/api/dispatch reports unknown when the SDK disconnects before the outcome'
   assert.equal(body.success, true);
   assert.equal(body.outcome, 'unknown');
   assert.match(body.message, /disconnected/);
+});
+
+test('/api/eval-sub requires MCP mode and a connected app', async () => {
+  let server = await startServer({ enableMCP: false });
+  let response = await postEvalSub(server.baseUrl, 'counter');
+  let body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.match(body.error, /MCP subscription evaluation is disabled/);
+
+  for (const activeServer of activeServers) {
+    await activeServer.stop();
+  }
+  activeServers.clear();
+
+  server = await startServer();
+  response = await postEvalSub(server.baseUrl, 'counter');
+  body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.match(body.error, /No app connected/);
+});
+
+test('/api/eval-sub rejects malformed args before broadcasting', async () => {
+  const { baseUrl } = await startServer();
+  const response = await fetch(`${baseUrl}/api/eval-sub`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'user-by-id', args: { id: 1 } }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(body.error, /args must be an array/);
+});
+
+test('/api/eval-sub returns a one-shot subscription value with Map and Set data', async () => {
+  const { baseUrl, wsUrl } = await startServer();
+
+  await connectSdk(wsUrl, () => {}, (message, socket) => {
+    assert.equal(message.payload.id, 'user-summary');
+    assert.deepEqual(message.payload.args, [7]);
+    sendSdkEvent(socket, {
+      type: 'reflex-eval-sub-result',
+      payload: {
+        evalId: message.payload.evalId,
+        value: {
+          user: new Map([['id', 7]]),
+          permissions: new Set(['read', 'write']),
+        },
+      },
+    });
+  });
+
+  const response = await postEvalSub(baseUrl, 'user-summary', [7]);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.success, true);
+  assert.deepEqual(body.value, {
+    user: { type: 'map', entries: [['id', 7]] },
+    permissions: { type: 'set', values: ['read', 'write'] },
+  });
+});
+
+test('/api/eval-sub surfaces missing handlers and evaluation errors', async () => {
+  const { baseUrl, wsUrl } = await startServer();
+
+  await connectSdk(wsUrl, () => {}, (message, socket) => {
+    const missing = message.payload.id === 'missing-sub';
+    sendSdkEvent(socket, {
+      type: 'reflex-eval-sub-result',
+      payload: {
+        evalId: message.payload.evalId,
+        error: missing
+          ? { phase: 'missing-handler', message: 'No subscription handler registered' }
+          : { phase: 'evaluation', message: 'selector exploded' },
+      },
+    });
+  });
+
+  let response = await postEvalSub(baseUrl, 'missing-sub');
+  let body = await response.json();
+  assert.equal(response.status, 404);
+  assert.equal(body.error.phase, 'missing-handler');
+
+  response = await postEvalSub(baseUrl, 'broken-sub');
+  body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error.phase, 'evaluation');
+  assert.equal(body.error.message, 'selector exploded');
+});
+
+test('/api/eval-sub fails promptly if the app disconnects', async () => {
+  const { baseUrl, wsUrl } = await startServer();
+  await connectSdk(wsUrl, () => {}, (_message, socket) => socket.close());
+
+  const response = await postEvalSub(baseUrl, 'slow-sub');
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.match(body.error, /disconnected/);
 });
 
 test('/api/traces/:id rejects malformed trace ids', async () => {

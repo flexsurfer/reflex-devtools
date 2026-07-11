@@ -114,13 +114,10 @@ This tool is the center of gravity of the whole API; everything else exists to s
 
 ### 6. Verify the derived layer
 
-The db is right — but does `expenses/category-total` compute `42.5`?
-
-- **Today:** `get_active_subs` ⚠️ — only works if some mounted component already subscribes, and it returns full values of *everything* mounted. The agent is forced to either write the component first and eyeball the browser, or dump all sub values and fish.
-- 🚧 **Roadmap: `eval_sub`** — evaluate any registered sub against current state, mounted or not:
+The db is right — but does `expenses/category-total` compute `42.5`? Evaluate the registered sub directly against current state, mounted or not:
 
 ```
-eval_sub { id: "expenses/category-total", params: ["food"] }
+eval_sub { id: "expenses/category-total", args: ["food"] }   ✅
 → { value: 42.5 }
 ```
 
@@ -283,9 +280,8 @@ Anti-patterns the API must keep unnecessary — if any of these becomes the prac
 
 ## Gaps, ranked by leverage in this scenario
 
-*(Shipped from this list: **headless runtime + `app_status`** — the browser-tab assumption is gone, and every cycle now opens with one cheap health call that also reveals restarts via `sessionEpoch`.)*
+*(Shipped from this list: **headless runtime + `app_status`** and **`eval_sub`** — the browser-tab assumption is gone, every cycle opens with one cheap health call, and the derived layer can be proved before a view exists.)*
 
-1. **`eval_sub`** — unlocks "prove the state layer before writing views", which reorders the whole authoring flow — and headless work leans on it doubly, since no components are mounted for `get_active_subs` to observe. (small–medium, 🚧 already)
-2. **`get_client_logs`** — render crashes, uncaught exceptions, and framework warnings without opening browser automation just to read the console; also adds the `clientErrors.unread` counter to `app_status`. (small)
-3. **`explain_event` with exact causality** — turns the canonical three-hop debug from a multi-call trace reconstruction into one bounded answer, but only after event→flush linkage is exact or the response clearly marks heuristic confidence. (medium; lib pairing required)
-4. **`replay_events` + state fixtures/scenarios** — removes the per-edit iteration tax. Replay re-derives setup through new handlers; snapshots restore expensive pre-action states; named scenarios bundle restore → dispatch → `eval_sub`. (medium; see [headless-state-fixtures.md](headless-state-fixtures.md))
+1. **`get_client_logs`** — render crashes, uncaught exceptions, and framework warnings without opening browser automation just to read the console; also adds the `clientErrors.unread` counter to `app_status`. (small)
+2. **`explain_event` with exact causality** — turns the canonical three-hop debug from a multi-call trace reconstruction into one bounded answer, but only after event→flush linkage is exact or the response clearly marks heuristic confidence. (medium; lib pairing required)
+3. **`replay_events` + state fixtures/scenarios** — removes the per-edit iteration tax. Replay re-derives setup through new handlers; snapshots restore expensive pre-action states; named scenarios bundle restore → dispatch → `eval_sub`. (medium; see [headless-state-fixtures.md](headless-state-fixtures.md))

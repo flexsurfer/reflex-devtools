@@ -1,4 +1,4 @@
-import { registerTraceCb, getAppDb, getReactions, dispatch, getHandlers, removeTraceCb } from "@flexsurfer/reflex";
+import { registerTraceCb, getAppDb, getReactions, dispatch, getHandlers, getSubscriptionValue, removeTraceCb } from "@flexsurfer/reflex";
 import { reflexReplacer } from "../serialization.js";
 
 export interface DevtoolsConfig {
@@ -229,6 +229,46 @@ class DevtoolsClient {
 
       // Dispatch the event in the client app with all parameters
       dispatch([eventName, ...params]);
+    } else if (message.type === 'eval-sub-to-client') {
+      void this.evaluateSubscription(message.payload);
+    }
+  }
+
+  private async evaluateSubscription(payload: any): Promise<void> {
+    const { evalId, id, args } = payload;
+
+    try {
+      if (!getHandlers().sub?.[id]) {
+        await this.sendEvent({
+          type: 'reflex-eval-sub-result',
+          payload: {
+            evalId,
+            error: {
+              phase: 'missing-handler',
+              message: `No subscription handler registered for '${id}'`
+            }
+          }
+        });
+        return;
+      }
+
+      const value = getSubscriptionValue([id, ...args]);
+      await this.sendEvent({
+        type: 'reflex-eval-sub-result',
+        payload: { evalId, value }
+      });
+    } catch (error) {
+      await this.sendEvent({
+        type: 'reflex-eval-sub-result',
+        payload: {
+          evalId,
+          error: {
+            phase: 'evaluation',
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          }
+        }
+      });
     }
   }
 

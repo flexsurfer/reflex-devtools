@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { DevToolsAPIClient, DevToolsServerUnavailableError } from '../dist/httpClient.js';
 import { appStatusTool } from '../dist/tools/appStatus.js';
 import { dispatchEventTool } from '../dist/tools/dispatchEvent.js';
+import { evalSubTool } from '../dist/tools/evalSub.js';
 import { getAppStateTool } from '../dist/tools/getAppState.js';
 import { getHandlersTool } from '../dist/tools/getHandlers.js';
 import { getTraceTool } from '../dist/tools/getTrace.js';
@@ -228,6 +229,41 @@ test('dispatch_event formats failed outcomes with actionable hints', async () =>
   assert.equal(body.outcome, 'failed');
   assert.equal(body.traceId, 9);
   assert.equal(body.error.phase, 'missing-handler');
+  assert.match(body.hint, /get_handlers/);
+});
+
+test('eval_sub returns the value for an unmounted parameterized subscription', async () => {
+  const apiClient = {
+    async evalSub(id, args) {
+      assert.equal(id, 'user-by-id');
+      assert.deepEqual(args, [7]);
+      return { success: true, value: { id: 7, name: 'Ada' } };
+    },
+  };
+
+  const result = await evalSubTool(apiClient).handler({ id: 'user-by-id', args: [7] });
+  const body = parseToolResult(result);
+
+  assert.equal(result.isError, undefined);
+  assert.equal(body.id, 'user-by-id');
+  assert.deepEqual(body.args, [7]);
+  assert.deepEqual(body.value, { id: 7, name: 'Ada' });
+});
+
+test('eval_sub gives missing subscription ids an actionable hint', async () => {
+  const apiClient = {
+    async evalSub() {
+      const error = new Error("No subscription handler registered for 'missing-sub'");
+      error.details = { phase: 'missing-handler', message: error.message };
+      throw error;
+    },
+  };
+
+  const result = await evalSubTool(apiClient).handler({ id: 'missing-sub' });
+  const body = parseToolResult(result);
+
+  assert.equal(result.isError, true);
+  assert.equal(body.details.phase, 'missing-handler');
   assert.match(body.hint, /get_handlers/);
 });
 

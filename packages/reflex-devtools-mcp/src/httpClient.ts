@@ -127,6 +127,28 @@ export class DevToolsAPIClient {
     return response.json();
   }
 
+  async evalSub(id: string, args: any[] = []): Promise<any> {
+    const response = await this.fetch('/api/eval-sub', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id, args }),
+    });
+    const body: any = await response.json().catch(() => null);
+    if (!response.ok) {
+      const detail = body?.error;
+      const error = new Error(
+        typeof detail === 'string'
+          ? detail
+          : detail?.message || `HTTP ${response.status}: ${response.statusText}`
+      );
+      (error as any).details = detail;
+      throw error;
+    }
+    return body;
+  }
+
   async getStatus(): Promise<any> {
     const response = await this.fetch('/api/status');
     if (!response.ok) {

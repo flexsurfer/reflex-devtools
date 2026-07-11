@@ -2,7 +2,8 @@
  * Reflex DevTools MCP Server
  * 
  * Model Context Protocol server that connects to Reflex DevTools
- * and provides AI assistants with tools to inspect traces and dispatch events.
+ * and provides AI assistants with tools to inspect state, evaluate
+ * subscriptions, inspect traces, and dispatch events.
  */
 
 import { createRequire } from 'node:module';
@@ -25,6 +26,7 @@ import { getAppStateTool } from './tools/getAppState.js';
 import { dispatchEventTool } from './tools/dispatchEvent.js';
 import { getHandlersTool } from './tools/getHandlers.js';
 import { getActiveSubsTool } from './tools/getActiveSubs.js';
+import { evalSubTool } from './tools/evalSub.js';
 
 export interface MCPServerConfig {
   devtoolsServerUrl: string;
@@ -39,7 +41,7 @@ Retrieval order (cheapest first):
 1. app_status — is an app connected, does it run in a browser, React Native, or headless, is tracing on, handler counts, sessionEpoch. Call it first after a cold start and after any reload; a changed sessionEpoch means the app restarted (trace ids reset, seeded state gone).
 2. get_handlers — registered event/sub/effect ids; learn what exists before reading state.
 3. get_app_state with "path" — read only the state slice you need; avoid full dumps on real apps.
-4. get_active_subs — current values of the computed subscriptions the UI has mounted.
+4. eval_sub — evaluate any registered subscription against live state, whether or not a component has mounted it. Use get_active_subs only when you need the current mounted-subscription set.
 5. dispatch_event — act. The response already carries the outcome (succeeded | failed | effects-failed | unknown) plus the state patches and emitted effects; verify from it instead of re-reading state.
 6. get_traces — compact rows of recent activity, including what you did not initiate (user clicks, timers, subscriptions). Drill into one trace with get_trace; never page through full trace details.
 
@@ -47,7 +49,7 @@ Caveats:
 - The app does not have to be a browser tab: a headless entry (src/headless.ts run under tsx/vite-node, no React mount) connects the same way and supports every tool here; app_status's "runtime" and effect adapter modes tell you which world you are driving.
 - dispatch_event mutates app state; it requires the devtools server started with --mcp and a connected app.
 - Trace ids reset and stored traces clear when the app reloads or reconnects, so a missing trace id usually means "session reset", not a bug — app_status's sessionEpoch confirms it.
-- A failed dispatch with phase "missing-handler" means that exact event id is not registered — check it against get_handlers.`;
+- A failed dispatch or subscription evaluation with phase "missing-handler" means that exact id is not registered — check it against get_handlers.`;
 
 export class ReflexDevToolsMCPServer {
   private server: Server;
@@ -89,7 +91,8 @@ export class ReflexDevToolsMCPServer {
       getAppStateTool(this.apiClient),
       dispatchEventTool(this.apiClient),
       getHandlersTool(this.apiClient),
-      getActiveSubsTool(this.apiClient)
+      getActiveSubsTool(this.apiClient),
+      evalSubTool(this.apiClient)
     ];
 
     for (const tool of tools) {
@@ -172,4 +175,3 @@ export async function createMCPServer(config: MCPServerConfig): Promise<ReflexDe
   await server.start();
   return server;
 }
-
