@@ -13,7 +13,7 @@ export interface GetHandlersParams {
 export function getHandlersTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_handlers',
-    description: 'List all registered handlers in the Reflex application. Handlers include event handlers, effects (fx), coeffects (cofx), and subscriptions (sub).',
+    description: 'List registered Reflex handlers: event handlers, effects (fx), coeffects (cofx), and subscriptions (sub). Pass type whenever it is known to keep the runtime index small.',
     inputSchema: {
       type: 'object',
       properties: {

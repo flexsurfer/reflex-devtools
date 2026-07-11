@@ -1,14 +1,14 @@
 <div align="center">
   <img src="reflex_devtools_logo.jpg" alt="Reflex DevTools Logo" width="200" />
-  
+
   # 🛠️ Reflex DevTools
-  
-  **Real-time debugging and inspection for Reflex applications**
-  
+
+  **Runtime observability for Reflex apps — built for AI agents first, humans second**
+
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
   [![NPM Version](https://img.shields.io/npm/v/%40flexsurfer%2Freflex-devtools)](https://www.npmjs.com/package/@flexsurfer/reflex-devtools)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/flexsurfer/reflex-devtools/pulls)
-    
+
 
   <img src="screenshot.png" alt="Reflex DevTools Screenshot" width="100%" />
 </div>
@@ -17,169 +17,180 @@
 
 ## ✨ What is Reflex DevTools?
 
-Reflex DevTools is a powerful debugging toolkit for applications built with the [`@flexsurfer/reflex`](https://github.com/flexsurfer/reflex) library. It provides real-time inspection of your application's state, events, and traces through an intuitive web-based dashboard.
+Reflex DevTools gives anything working on a [`@flexsurfer/reflex`](https://github.com/flexsurfer/reflex) app — a coding agent or a human — live access to the running application: current state, registered handlers, execution traces, and the ability to dispatch events and observe exactly what they did.
 
-### 🎯 Key Features
+For **AI agents** (Claude Code, Codex, Cursor), that turns debugging from "read the source and guess" into an act-and-verify loop over [MCP](https://modelcontextprotocol.io): dispatch an event, get back the state patches it committed and the effects it emitted, no full-state dumps, no browser required.
 
-- **📊 Database State Inspection** - Visualize your entire application state in real-time
-- **🔄 Real-time Event Tracing** - Watch events and state changes as they happen
-- **🔥 Real-time Reactions and Render Tracing** - Watch all reactions being created and run, and rendering processes
-- **⏱ Performance Profiling** - Analyze events and reactions times and bottlenecks in real-time
-- **🤖 AI-Powered Debugging** - MCP integration enables AI assistants like Claude or Cursor to inspect traces and dispatch events
-- **🧪 Headless Runtime Support** - Run the state layer under Node (`tsx`/`vite-node`) with no browser: the same SDK, tools, and traces, for CI and autonomous agent loops
-- **🎨 Beautiful Dashboard** - Clean, modern UI with dark/light theme support
-- **📱 React & React Native Support** - Works seamlessly with both platforms
-- **⚡ Zero Configuration** - Get started with just two lines of code
+For **humans**, the same server hosts a real-time web dashboard with state inspection, event tracing, and performance profiling.
 
 ---
 
-## 🚀 Quick Start
+## 🤖 Agentic Development
 
-### Installation
+### The two-step path
+
+Install the [Reflex Agent Toolkit](https://github.com/flexsurfer/reflex-agent-toolkit) plugin once, globally — it teaches your agent the whole Reflex workflow (skills + MCP configuration):
+
+**Claude Code**
+
+```text
+/plugin marketplace add flexsurfer/reflex-agent-toolkit
+/plugin install reflex-agent-toolkit@reflex-agent-toolkit
+```
+
+**Codex**
 
 ```bash
-npm install --save-dev @flexsurfer/reflex-devtools
-# or
-yarn add -D @flexsurfer/reflex-devtools
-# or
-pnpm add -D @flexsurfer/reflex-devtools
+codex plugin marketplace add flexsurfer/reflex-agent-toolkit
+# then inside Codex: /plugins → install "Reflex Agent Toolkit"
 ```
 
-### 1. Enable in Your App
+Then just ask for the outcome you want:
 
-Add these lines to your app's entry point (e.g., `main.tsx` or `App.tsx`):
+```text
+> Create a React/Vite site using Reflex (@flexsurfer/reflex).
 
-```typescript
-import { enableTracing } from '@flexsurfer/reflex';
-import { enableDevtools } from '@flexsurfer/reflex-devtools';
+> Migrate this app's state management to Reflex (@flexsurfer/reflex).
 
-// Enable tracing for Reflex events
-enableTracing();
-
-// Connect to devtools server
-enableDevtools({ 
-  serverUrl: 'localhost:4000' // Optional: defaults to localhost:4000
-});
+> Add category filtering and verify it works.
 ```
 
-### 2. Start the DevTools Server
+That's it. The plugin's skill drives the agent through everything this README used to ask of you: it installs `@flexsurfer/reflex` and `@flexsurfer/reflex-devtools` in the project, wires up dev-only tracing, adds and starts the project-local `devtools:mcp` server script, and verifies its own work through the MCP tools instead of re-reading source files.
 
-```bash
-npx reflex-devtools
-```
+### What the agent gets
 
-Or with custom configuration:
+The plugin starts a version-pinned MCP bridge ([@flexsurfer/reflex-devtools-mcp](packages/reflex-devtools-mcp)) that connects to the project-local DevTools server:
 
-```bash
-npx reflex-devtools --port 3000 --host 0.0.0.0
-```
+| Tool | What it answers |
+|---|---|
+| `app_status` | Is an app connected? Browser or headless? Did it restart since I last looked? |
+| `get_handlers` | Which event/effect/subscription ids exist? |
+| `get_app_state` | What is the state *at this path* (scoped reads, not full dumps)? |
+| `get_active_subs` | What are the current values of mounted subscriptions? |
+| `dispatch_event` | Act — and get back the outcome: state patches, emitted effects, or the error |
+| `get_traces` / `get_trace` | What happened recently, including what the agent didn't initiate? |
 
-> **⚠️ Security note:** Reflex DevTools and its MCP API are development-only tools with no authentication — the HTTP API can read app state, and `/api/dispatch` (with `--mcp`) can mutate it. Never expose the server to the public internet; only bind `--host 0.0.0.0` on trusted local networks.
+The key loop is `dispatch_event`: its response already contains the observed outcome (`succeeded` / `failed` / `effects-failed`) with the state diff and effects, so the agent verifies each change without a follow-up state read. A typo'd event id comes back as `missing-handler`, not a silent no-op.
 
-### 3. Open the Dashboard
+### Manual setup (Cursor, Claude Desktop, or no plugin)
 
-Navigate to [http://localhost:4000](http://localhost:4000) in your browser to see the DevTools dashboard.
+If you're not using the agent toolkit plugin, the setup the skill automates is four small steps:
 
----
-
-## 📖 Usage Examples
-
-### Basic Setup
-
-```typescript
-// main.tsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { enableTracing } from '@flexsurfer/reflex';
-import { enableDevtools } from '@flexsurfer/reflex-devtools';
-import App from './App';
-
-enableTracing();
-enableDevtools();
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
-```
-
-### Custom Configuration
-
-```typescript
-enableDevtools({
-  serverUrl: 'localhost:3001',
-  enabled: process.env.NODE_ENV === 'development'
-});
-```
----
-
-## 🤖 AI-Powered Debugging with MCP
-
-Reflex DevTools now supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io), enabling AI assistants like Claude and Cursor to directly inspect your application traces and dispatch events!
-
-### Quick Setup
-
-1. **Install the MCP server:**
+1. **Install DevTools in your project:**
    ```bash
-   npm install -g @flexsurfer/reflex-devtools-mcp
+   npm install --save-dev @flexsurfer/reflex-devtools
    ```
 
-2. **Start DevTools server with MCP support:**
-   ```bash
-   npx reflex-devtools --mcp
+2. **Enable it in development** (app entry point; adjust the env guard for non-Vite apps):
+   ```typescript
+   import { enableTracing } from '@flexsurfer/reflex';
+   import { enableDevtools } from '@flexsurfer/reflex-devtools';
+
+   if (import.meta.env.DEV) {
+     enableTracing();
+     enableDevtools();
+   }
    ```
-   **Important:** The `--mcp` flag enables trace storage. Without it, MCP will not work.
 
-4. **Configure your AI client:**
+3. **Add and run the project-local server script** (`--mcp` enables trace storage — without it the MCP tools have nothing to read):
+   ```json
+   {
+     "scripts": {
+       "devtools:mcp": "reflex-devtools --mcp --host 127.0.0.1 --port 4000"
+     }
+   }
+   ```
+   ```bash
+   npm run devtools:mcp
+   ```
 
-   **For Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+4. **Point your MCP client at the bridge** (Claude Desktop: `~/Library/Application Support/Claude/claude_desktop_config.json`; Cursor: `.cursor/mcp.json`):
    ```json
    {
      "mcpServers": {
        "reflex-devtools": {
          "command": "npx",
-         "args": ["reflex-devtools-mcp"],
-         "env": {}
+         "args": [
+           "--yes",
+          "--package=@flexsurfer/reflex-devtools-mcp@0.1.12",
+           "reflex-devtools-mcp",
+           "--host",
+           "127.0.0.1",
+           "--port",
+           "4000"
+         ]
        }
      }
    }
    ```
 
-   **For Cursor IDE** (Cursor Settings → `settings.json`):
-   ```json
-   {
-     "mcp.servers": {
-       "reflex-devtools": {
-         "command": "npx",
-         "args": ["reflex-devtools-mcp"],
-         "env": {}
-       }
-     }
-   }
-   ```
+Then run your app (browser tab or headless, below) and ask the agent things like:
+- "What's the current app state and what user actions led to it?"
+- "Find event handlers slower than 100ms"
+- "Dispatch `user-login` with a test user and tell me what changed"
 
-5. **Restart your AI client** and ask questions like:
-   - "What's the current app state and what user actions led to this state?"
-   - "Navigate to the user profile page and select the first item in the list"
-   - "Find slow event handlers that take longer than 100ms to execute"
-   - "Show me active subscriptions that might be causing unnecessary re-renders"
+📚 **[Full MCP documentation →](packages/reflex-devtools-mcp/README.md)**
 
-📚 **[Full MCP Documentation →](packages/reflex-devtools-mcp/README.md)**
+### Headless runtime — no browser required
 
-### Headless runtime (no browser required)
+The Reflex state layer is React-free, so an autonomous agent doesn't need a browser tab to run your app. Add a `src/headless.ts` entry that imports the same `db`/`events`/`subs` modules as `main.tsx` plus Node-safe side-effect adapters (`effects.headless.ts` / `coeffects.headless.ts` twins of your browser adapters), calls `enableTracing()` + `enableDevtools()`, and run it under `tsx watch` (or `vite-node --watch`).
 
-The Reflex state layer is React-free, so agents and CI don't need a browser tab to run the app. Add a `src/headless.ts` entry that imports your `db`/`events`/`subs` plus Node-safe side-effect adapters (`effects.headless.ts` / `coeffects.headless.ts` twins of your browser adapters), calls `enableTracing()` + `enableDevtools()`, and run it under `tsx watch` (or `vite-node --watch`). The SDK auto-detects `runtime: 'headless'`, connects over WebSocket exactly like a browser tab, and every MCP tool works against it — the `app_status` tool reports the runtime, the effect adapter modes, and a `sessionEpoch` that bumps on every reload so agents notice restarts.
+The SDK auto-detects `runtime: 'headless'`, connects exactly like a browser tab, and every MCP tool works against it. `app_status` reports the runtime, the effect adapter modes (so the agent knows `local-storage-set` is memory-backed, not real), and a `sessionEpoch` that bumps on every reload so agents notice restarts — trace ids reset, seeded state gone.
 
-Headless mode requires **Node.js 22+**: the SDK connects through the global `WebSocket` (stable since Node 22; browsers and React Native provide it natively). On an older Node the SDK refuses to start with an explicit warning instead of half-working.
+Headless mode requires **Node.js 22+** (the SDK connects through the global `WebSocket`). On older Node it refuses loudly instead of half-working.
 
 See [reflex-test-app](packages/reflex-test-app) for the reference scaffold (`pnpm dev:testapp:headless`) and the [MCP README](packages/reflex-devtools-mcp/README.md#-headless-runtime-for-autonomous-agent-loops) for the adapter-split convention.
 
+> **⚠️ Security note:** DevTools and its MCP API are development-only tools with no authentication — the HTTP API can read app state, and `/api/dispatch` (with `--mcp`) can mutate it. Never expose the server to the public internet; only bind `--host 0.0.0.0` on trusted local networks.
+
 ---
 
-## 🔧 Configuration Options
+## 🧑 Human Development
 
-### Client Configuration
+The same server hosts a web dashboard — pleasant for humans, and the visual counterpart of everything the agent sees:
+
+- **📊 Database State Inspection** — visualize your entire application state in real-time
+- **🔄 Real-time Event Tracing** — watch events and state changes as they happen
+- **🔥 Reactions & Render Tracing** — see reactions being created, run, and disposed
+- **⏱ Performance Profiling** — find slow events and reactions as they happen
+- **🎨 Dark/light themes**, React & React Native support
+
+If your project is already set up for agents (above), the dashboard is already there: open [http://localhost:4000](http://localhost:4000) while `devtools:mcp` is running.
+
+Starting from scratch, without the MCP parts:
+
+```bash
+npm install --save-dev @flexsurfer/reflex-devtools
+```
+
+```typescript
+// app entry point
+import { enableTracing } from '@flexsurfer/reflex';
+import { enableDevtools } from '@flexsurfer/reflex-devtools';
+
+enableTracing();
+enableDevtools(); // defaults to localhost:4000
+```
+
+```json
+{
+  "scripts": {
+    "devtools": "reflex-devtools"
+  }
+}
+```
+
+```bash
+npm run devtools
+```
+
+Then open [http://localhost:4000](http://localhost:4000).
+
+---
+
+## 🔧 Configuration Reference
+
+### Client (`enableDevtools`)
 
 ```typescript
 interface DevtoolsConfig {
@@ -197,78 +208,67 @@ interface DevtoolsConfig {
 }
 ```
 
-### Server Configuration
+### Server CLI
 
 ```bash
-npx reflex-devtools [options]
+reflex-devtools [options]
 
 Options:
-  -p, --port <port>    Port number (default: 4000)
-  -h, --host <host>    Host address (default: localhost)
-  --help              Show help message
+  -p, --port <port>       Port to run the server on (default: 4000)
+  -h, --host <host>       Host to bind the server to (default: localhost)
+  --mcp                   Enable MCP support with trace storage
+  --max-traces <number>   Maximum traces to store (default: 1000, requires --mcp)
+  --help                  Show this help message
 ```
 
 ---
 
 ## 🏗️ Architecture
 
-Reflex DevTools consists of three main components:
-
 ```
 ┌─────────────────┐    WebSocket/HTTP    ┌─────────────────┐
 │   Your App      │ ◀──────────────────▶ │  DevTools       │
-│                 │                      │  Server         │
-│ - Reflex SDK    │                      │                 │
-│ - DevTools SDK  │                      │ - Express API   │
-│                 │                      │ - WebSocket     │
-└─────────────────┘                      └─────────────────┘
-                                                   │
-                                                   │ HTTP
-                                                   ▼
-                                         ┌─────────────────┐
-                                         │   Web Dashboard │
-                                         │                 │
-                                         │ - React UI      │
-                                         │ - Real-time     │
-                                         │   Updates       │
-                                         └─────────────────┘
+│  (browser tab   │                      │  Server         │
+│   or headless)  │                      │                 │
+│ - Reflex SDK    │                      │ - Express API   │
+│ - DevTools SDK  │                      │ - WebSocket     │
+└─────────────────┘                      │ - Trace storage │
+                                         └───────┬─────────┘
+                                     HTTP │              │ HTTP
+                                          ▼              ▼
+                                ┌──────────────┐  ┌──────────────────┐
+                                │  Dashboard   │  │  MCP Bridge      │
+                                │  (React UI,  │  │  (stdio) → agent │
+                                │   humans)    │  │                  │
+                                └──────────────┘  └──────────────────┘
 ```
 
-### Components:
-
-1. **Client SDK** (`/client`) - Lightweight SDK that integrates with your app
-2. **DevTools Server** (`/server`) - Express server with WebSocket support
-3. **Web Dashboard** (`/ui`) - React-based debugging interface
+1. **Client SDK** (`/client`) — lightweight SDK that runs inside your app
+2. **DevTools Server** (`/server`) — Express + WebSocket server with trace storage
+3. **Web Dashboard** (`/ui`) — React debugging interface for humans
+4. **MCP Bridge** ([reflex-devtools-mcp](packages/reflex-devtools-mcp)) — stateless stdio server for AI agents
 
 ---
 
 ## 🛠️ Development & Contributing
 
-We welcome contributions! Here's how to get started:
+We welcome contributions!
 
 ### Prerequisites
 
 - Node.js 18+ (22+ for the headless test app — the SDK needs the global `WebSocket` there)
 - pnpm (recommended) or npm/yarn
 
-### Setup Development Environment
+### Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/flexsurfer/reflex-devtools.git
 cd reflex-devtools
-
-# Install dependencies
 pnpm install
-
-# Start development servers
 pnpm dev
 ```
 
-This will start:
-- DevTools server on `localhost:4000`
-- UI development server with hot reload on `localhost:5173`
-- Test app on `localhost:3000`
+This starts the DevTools server on `localhost:4000`, the UI dev server with hot reload on `localhost:5173`, and the test app on `localhost:3000`.
 
 ### Project Structure
 
@@ -283,50 +283,31 @@ packages/
 │   └── src/cli.ts          # MCP CLI entry point
 ├── reflex-devtool-ui/      # Web dashboard
 │   └── src/                # React components
-└── reflex-test-app/        # Example app for testing
+└── reflex-test-app/        # Example app for testing (browser + headless)
 ```
 
 ### Development Commands
 
 ```bash
-# Build all packages
-pnpm build
-
-# Build specific packages
-pnpm build:devtools    # Build main devtools package
-pnpm build:ui          # Build UI dashboard
-pnpm build:mcp         # Build MCP server
-
-# Run tests
-pnpm test
-
-# Start development servers
-pnpm dev:ui            # Start UI in development mode
-pnpm dev:server        # Start DevTools server (use --mcp for MCP support)
-pnpm dev:testapp       # Start test app
+pnpm build                 # Build all packages
+pnpm test                  # Run all tests
+pnpm dev:server            # Start DevTools server (use --mcp for MCP support)
+pnpm dev:ui                # Start UI in development mode
+pnpm dev:testapp           # Start test app (browser)
 pnpm dev:testapp:headless  # Start test app headless (no browser, vite-node --watch)
-pnpm dev:mcp           # Start MCP server in dev mode
-pnpm start:mcp         # Start MCP server (production)
-
-# Clean all builds
-pnpm clean
+pnpm agent:server          # Direct entrypoint: node dist/cli.js --mcp on 127.0.0.1:4000
+pnpm clean                 # Clean all builds
 ```
+
+For agent-sandbox workflows inside this repo (direct `node` entrypoints, no `npx`), see [AGENTS.md](AGENTS.md).
 
 ### Making Changes
 
 1. **Fork** the repository
 2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
-3. **Make** your changes
-4. **Test** with the test app: `pnpm dev:testapp`
-5. **Commit** using conventional commits: `git commit -m 'feat: add amazing feature'`
-6. **Push** and create a **Pull Request**
-
-### Code Style
-
-- TypeScript for all code
-- ESLint + Prettier for formatting
-- Conventional Commits for commit messages
-- Component-based architecture for UI
+3. **Make** your changes and **test** with the test app
+4. **Commit** using conventional commits: `git commit -m 'feat: add amazing feature'`
+5. **Push** and create a **Pull Request**
 
 ---
 
@@ -343,9 +324,9 @@ Built with ❤️ for the Reflex community. Special thanks to all contributors a
 ---
 
 <div align="center">
-  
+
   **Happy Debugging! 🐛➡️✨**
-  
+
   Made by [@flexsurfer](https://github.com/flexsurfer)
-  
+
 </div>

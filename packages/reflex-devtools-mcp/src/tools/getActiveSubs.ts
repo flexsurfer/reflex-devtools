@@ -13,7 +13,7 @@ export interface GetActiveSubsParams {
 export function getActiveSubsTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_active_subs',
-    description: 'Get currently active calculated subscriptions in the Reflex application. For root subscriptions use get_app_state instead.',
+    description: 'Get currently active calculated subscriptions in the Reflex application. Only subscriptions mounted by the current UI are present; use filter to keep the response narrow. For root subscriptions use get_app_state instead.',
     inputSchema: {
       type: 'object',
       properties: {

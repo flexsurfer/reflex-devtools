@@ -34,7 +34,7 @@ export function appStatusTool(apiClient: DevToolsAPIClient) {
 
         const hints: string[] = [];
         if (!response.mcpEnabled) {
-          hints.push('The devtools server was started without --mcp: dispatch and trace storage are disabled. Restart it with `reflex-devtools --mcp`.');
+          hints.push('The devtools server was started without --mcp: dispatch and trace storage are disabled. Restart the project-local `devtools:mcp` script (for example, `npm run devtools:mcp`).');
         }
         if (!response.appConnected) {
           hints.push('No app is connected. Start one — a browser tab, or a headless state runtime (a src/headless.ts entry run under tsx/vite-node) for browserless work.');
@@ -64,7 +64,7 @@ export function appStatusTool(apiClient: DevToolsAPIClient) {
               text: JSON.stringify({
                 error: 'Failed to fetch app status',
                 message: error instanceof Error ? error.message : 'Unknown error',
-                hint: 'The devtools server itself is unreachable — start it with `reflex-devtools --mcp`'
+                hint: 'The devtools server itself is unreachable — start the project-local `devtools:mcp` script (for example, `npm run devtools:mcp`)'
               }, null, 2)
             }
           ],

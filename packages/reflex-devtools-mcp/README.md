@@ -1,160 +1,141 @@
 # 🤖 Reflex DevTools MCP Server
 
-**AI-powered debugging for Reflex applications via the Model Context Protocol**
+**The bridge that lets AI agents observe and drive a running Reflex app**
 
-This package provides a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that connects to Reflex DevTools via HTTP API. It enables AI assistants like Claude and Cursor to inspect application traces, query state, and dispatch events for testing and debugging.
+This package is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that connects AI agents — Claude Code, Codex, Cursor, Claude Desktop — to a running Reflex application through the [Reflex DevTools](https://github.com/flexsurfer/reflex-devtools) server. Agents inspect state and traces, dispatch events, and verify outcomes from the response instead of re-reading source files.
 
-**Note:** Trace storage is handled by the DevTools server (requires `--mcp` flag). This MCP server acts as a stateless API client.
+**Note:** Trace storage lives in the DevTools server (started with `--mcp`). This MCP server is a stateless API client — install it once, globally, and it works across every project.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![NPM Version](https://img.shields.io/npm/v/%40flexsurfer%2Freflex-devtools-mcp)](https://www.npmjs.com/package/@flexsurfer/reflex-devtools-mcp)
 
 ---
 
-## ✨ What is This?
-
-The Reflex DevTools MCP Server acts as a bridge between AI assistants and your running Reflex application. It queries the DevTools server's REST API to provide AI assistants with debugging capabilities:
+## ✨ How it fits together
 
 ```
 ┌─────────────────┐    WebSocket    ┌─────────────────────────┐    HTTP    ┌─────────────────┐
 │   Your App      │◀───────────────▶│   DevTools Server       │◀──────────▶│   MCP Server    │
-│  + Reflex SDK   │                 │   + Trace Storage       │            │                 │
-└─────────────────┘                 │   + REST API            │            └─────────────────┘
-                                    └─────────────────────────┘                    │
-                                                                                   │ MCP (stdio)
-                                                                                   ▼
-                                                                           ┌─────────────────┐
-                                                                           │  AI Assistant   │
-                                                                           │  (Claude/Cursor)│
-                                                                           └─────────────────┘
+│  + Reflex SDK   │                 │   + Trace Storage       │            │  (this package) │
+│ (browser tab or │                 │   + REST API            │            └────────┬────────┘
+│  headless Node) │                 │  project-local, --mcp   │                     │ MCP (stdio)
+└─────────────────┘                 └─────────────────────────┘                     ▼
+                                                                            ┌─────────────────┐
+                                                                            │    AI Agent     │
+                                                                            │ (Claude Code,   │
+                                                                            │  Codex, Cursor) │
+                                                                            └─────────────────┘
 ```
 
-AI assistants can:
-- 🩺 **Check app health in one call** - Is an app connected, browser or headless, tracing on, and did the session restart since the last look
-- 📊 **Inspect execution traces** - Compact trace lists plus per-trace detail (state patches, effects, errors)
-- 🔍 **Query application state** - Examine the current app database
-- 🚀 **Dispatch events and observe the outcome** - Trigger a handler and get back the state diff it committed, the effects it emitted, or the error if it failed
-- 📚 **List handlers** - See all registered event handlers, effects, and subscriptions
-- ⚡ **Monitor subscriptions** - View active reactive queries
+Two processes, two scopes:
 
-The app does not have to be a browser tab: a **headless runtime** (see below) connects the same way, so the whole loop works in CI and autonomous agent sessions with no browser at all.
+- **DevTools server** — project-local, installed as a dev dependency, run in the project folder (`npm run devtools:mcp`). Holds trace storage and talks to the app. Agents start this themselves.
+- **MCP bridge (this package)** — global, started by the AI client via version-pinned `npx`. Stateless; just translates MCP tool calls into DevTools API calls.
+
+What agents can do through it:
+
+- 🩺 **Check app health in one call** — is an app connected, browser or headless, tracing on, and did the session restart since the last look
+- 📊 **Inspect execution traces** — compact trace lists plus per-trace detail (state patches, effects, errors)
+- 🔍 **Query application state** — scoped by path, no full dumps
+- 🚀 **Dispatch events and observe the outcome** — trigger a handler and get back the state diff it committed, the effects it emitted, or the error if it failed
+- 📚 **List handlers** — all registered events, effects, coeffects, and subscriptions
+- ⚡ **Monitor subscriptions** — current values of active reactive queries
+
+The app does not have to be a browser tab: a **[headless runtime](#-headless-runtime-for-autonomous-agent-loops)** connects the same way, so the whole loop works in CI and autonomous agent sessions with no browser at all.
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Recommended: the Reflex Agent Toolkit plugin
 
-1. **Install Reflex DevTools** in your app (if not already done):
+For Claude Code and Codex, don't configure this package by hand. The [Reflex Agent Toolkit](https://github.com/flexsurfer/reflex-agent-toolkit) plugin ships the MCP configuration *and* the workflow skill that teaches the agent when to use each tool:
+
+**Claude Code**
+
+```text
+/plugin marketplace add flexsurfer/reflex-agent-toolkit
+/plugin install reflex-agent-toolkit@reflex-agent-toolkit
+```
+
+**Codex**
+
+```bash
+codex plugin marketplace add flexsurfer/reflex-agent-toolkit
+# then inside Codex: /plugins → install "Reflex Agent Toolkit"
+```
+
+Then ask for what you want — "Create a React/Vite site using Reflex (@flexsurfer/reflex)" — and the agent handles project setup (dependencies, tracing, the `devtools:mcp` script) itself.
+
+### Manual client configuration
+
+For Claude Desktop, Cursor, or any other MCP client, register the bridge with `npx` and the exact tested package version. One config works everywhere; only the file location differs:
+
+- **Claude Desktop:** `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
+- **Cursor:** `.cursor/mcp.json` in the project root
+
+```json
+{
+  "mcpServers": {
+    "reflex-devtools": {
+      "command": "npx",
+      "args": [
+        "--yes",
+        "--package=@flexsurfer/reflex-devtools-mcp@0.1.12",
+        "reflex-devtools-mcp",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4000"
+      ]
+    }
+  }
+}
+```
+
+`--host`/`--port` point at the DevTools server; change them if yours runs elsewhere. Restart the client and the tools appear.
+
+### App-side prerequisites
+
+The bridge needs a DevTools server with a connected app to talk to. In the project (the agent toolkit skill does all of this automatically):
+
+1. **Install DevTools:**
    ```bash
    npm install --save-dev @flexsurfer/reflex-devtools
    ```
 
-2. **Enable DevTools in your app** (`main.tsx` or `App.tsx`):
+2. **Enable it in development** (app entry point):
    ```typescript
    import { enableTracing } from '@flexsurfer/reflex';
    import { enableDevtools } from '@flexsurfer/reflex-devtools';
 
-   enableTracing();
-   enableDevtools();
+   if (import.meta.env.DEV) {
+     enableTracing();
+     enableDevtools();
+   }
    ```
 
-3. **Start the DevTools server** with MCP support:
+3. **Add and run the project-local server script.** The `--mcp` flag enables trace storage — without it, MCP tools return "MCP not enabled" errors:
+   ```json
+   {
+     "scripts": {
+       "devtools:mcp": "reflex-devtools --mcp --host 127.0.0.1 --port 4000"
+     }
+   }
+   ```
    ```bash
-   npx reflex-devtools --mcp
+   npm run devtools:mcp
    ```
 
-   **Important:** The `--mcp` flag enables trace storage and REST API. Without it, MCP will return "MCP not enabled" errors.
+4. **Start your Reflex app** — a browser tab, or a headless entry (`src/headless.ts` under `tsx`/`vite-node`) for browserless agent work.
 
-   > **⚠️ Security note:** DevTools and its MCP API are development-only and unauthenticated — `/api/dispatch` can mutate application state. Never expose the server to the public internet; keep it on `localhost` or a trusted local network.
-
-4. **Start your Reflex application** — a browser tab, or a headless entry (`src/headless.ts` under `tsx`/`vite-node`) for browserless agent work; see [Headless runtime](#-headless-runtime-for-autonomous-agent-loops)
-
-### Install MCP Server
-
-```bash
-npm install -g @flexsurfer/reflex-devtools-mcp
-# or
-pnpm add -g @flexsurfer/reflex-devtools-mcp
-```
-
-### Configure with Claude Desktop
-
-Add to your Claude Desktop config file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
-
-```json
-{
-  "mcpServers": {
-    "reflex-devtools": {
-      "command": "npx",
-      "args": ["reflex-devtools-mcp"],
-      "env": {}
-    }
-  }
-}
-```
-
-For custom DevTools server host/port:
-
-```json
-{
-  "mcpServers": {
-    "reflex-devtools": {
-      "command": "npx",
-      "args": ["reflex-devtools-mcp", "--port", "3000", "--host", "192.168.1.10"],
-      "env": {}
-    }
-  }
-}
-```
-
-Restart Claude Desktop, and the tools will be available!
-
-### Configure with Cursor IDE
-
-Cursor IDE also supports MCP servers. Add to your Cursor settings:
-
-1. **Open Cursor Settings**: `Cmd/Ctrl + Shift + P` → "Preferences: Open User Settings (JSON)"
-
-2. **Add MCP configuration** to your `settings.json`:
-
-```json
-{
-  "mcp.servers": {
-    "reflex-devtools": {
-      "command": "npx",
-      "args": ["reflex-devtools-mcp"],
-      "env": {}
-    }
-  }
-}
-```
-
-3. **Use with Cursor Composer/Chat**: Ask the AI to inspect your app:
-   - "Show me recent traces from my Reflex app"
-   - "What's causing the performance issue?"
-   - "Dispatch a test event to my app"
-
-**Custom Configuration for Cursor:**
-
-```json
-{
-  "mcp.servers": {
-    "reflex-devtools": {
-      "command": "reflex-devtools-mcp",
-      "args": ["--port", "4000", "--host", "localhost"],
-      "env": {},
-      "description": "Reflex DevTools for debugging"
-    }
-  }
-}
-```
+> **⚠️ Security note:** DevTools and its MCP API are development-only and unauthenticated — `/api/dispatch` can mutate application state. Never expose the server to the public internet; keep it on `localhost` or a trusted local network.
 
 ---
 
 ## 🛠️ Available MCP Tools
 
-The server also advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: check `app_status` first, discover handlers, read state by path, act with `dispatch_event`, verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
+The server advertises usage instructions to every MCP client at initialize time (the recommended retrieval order: check `app_status` first, discover handlers, read state by path, act with `dispatch_event`, verify from its response), so agents get this workflow automatically — no extra prompt setup needed.
 
 ### 1. `app_status`
 
@@ -169,7 +150,7 @@ Degraded setups come back with explicit hints (server started without `--mcp`, n
 
 **Parameters:** none
 
-**Example prompts for Claude:**
+**Example prompts:**
 - "Is my app connected and healthy?"
 - "Did the app restart since we last checked?"
 
@@ -183,7 +164,7 @@ List execution traces from your application as compact rows: id, operation, opTy
 - `minDuration` (number, optional): Filter traces by minimum duration in milliseconds
 - `opType` (string, optional): Filter by operation type: `event`, `render`, `sub/create`, `sub/run`, `sub/dispose`
 
-**Example prompts for Claude:**
+**Example prompts:**
 - "Show me the last 10 event traces"
 - "Find all traces with duration over 100ms"
 - "Show me traces for the 'fetch-user' event"
@@ -195,19 +176,18 @@ Get the full detail of a single trace by id: for events, the state patches commi
 **Parameters:**
 - `id` (number, required): The trace id, as returned by `get_traces`
 
-**Example prompts for Claude:**
+**Example prompts:**
 - "Show me the full detail of trace 42"
 - "What state changes did that failed event make before throwing?"
 
 ### 4. `get_app_state`
 
-Retrieve the current application database state.
+Retrieve the current application database state — scoped by path whenever possible.
 
 **Parameters:**
-- `path` (string, optional): JSONPath to a specific part of state (e.g., `user.profile`, `items[0]`)
+- `path` (string, optional): Path to a specific part of state (e.g., `user.profile`, `items[0]`)
 
-**Example prompts for Claude:**
-- "What's the current app state?"
+**Example prompts:**
 - "Show me the user profile data"
 - "What's in the items array?"
 
@@ -227,10 +207,9 @@ This tool requires the DevTools server to be started with `--mcp`.
 - `eventName` (string, required): The event ID to dispatch
 - `params` (array, optional): Parameters to pass to the event handler
 
-**Example prompts for Claude:**
+**Example prompts:**
 - "Dispatch a 'set-user' event with id 123 and name 'Test User'"
 - "Trigger the 'clear-cache' event and tell me what state it changed"
-- "Call 'update-settings' with dark mode enabled"
 
 ### 6. `get_handlers`
 
@@ -239,19 +218,18 @@ List all registered handler ids, grouped by handler type.
 **Parameters:**
 - `type` (string, optional): Filter by handler type: `event`, `fx`, `cofx`, `sub`
 
-**Example prompts for Claude:**
+**Example prompts:**
 - "What event handlers are registered?"
 - "List all registered effects"
-- "Show me the subscription handlers"
 
 ### 7. `get_active_subs`
 
-View currently active subscription reactions.
+View currently active subscription reactions and their current values.
 
 **Parameters:**
 - `filter` (string, optional): Filter subscriptions by key name
 
-**Example prompts for Claude:**
+**Example prompts:**
 - "What subscriptions are currently active?"
 - "Show me user-related subscriptions"
 
@@ -292,39 +270,11 @@ The [reflex-test-app](../reflex-test-app) in this repo is the reference implemen
 
 ---
 
-## 💡 Usage Examples with AI
-
-### Debugging Performance Issues
-
-**You:** "My app feels slow. Can you help me identify bottlenecks?"
-
-**Claude (using MCP tools):**
-```
-Let me check the traces for slow operations...
-
-*calls get_traces with minDuration: 50*
-
-I found several events taking over 50ms:
-- "fetch-user-data": 234ms (3 times)
-- "process-large-list": 156ms (1 time)
-- "render": 89ms (5 times)
-
-The "fetch-user-data" event seems to be the main bottleneck.
-Let me check what effects it's triggering...
-
-*calls get_handlers with type: "fx"*
-
-I see it's using a "fetch-api" effect. Consider:
-1. Adding request caching
-2. Using optimistic updates
-3. Implementing pagination
-```
-
-### Testing Event Flow
+## 💡 The act-and-verify loop in practice
 
 **You:** "Can you test what happens when a user logs in?"
 
-**Claude:**
+**Agent:**
 ```
 I'll dispatch a login event with test user data...
 
@@ -339,52 +289,45 @@ The event succeeded. The response shows exactly what it did:
 The login flow works — no follow-up state query needed.
 ```
 
-### Understanding Code Architecture
+**You:** "My app feels slow. Can you find bottlenecks?"
 
-**You:** "What effects are available in this app?"
-
-**Claude:**
+**Agent:**
 ```
-*calls get_handlers with type: "fx"*
+*calls get_traces with minDuration: 50*
 
-Your app has 5 effect handlers registered:
-- fetch-api
-- local-storage
-- analytics-track
-- navigate
-- websocket-send
+I found several events taking over 50ms:
+- "fetch-user-data": 234ms (3 times)
+- "process-large-list": 156ms (1 time)
 
-The "fetch-api" effect handles HTTP requests.
-Would you like me to examine how it's being used in your event handlers?
+*calls get_trace with id 87*
+
+"fetch-user-data" emits a "fetch-api" effect on every keystroke —
+consider debouncing the dispatch or caching the request.
 ```
 
 ---
 
 ## 🔧 Configuration
 
-### DevTools Server Configuration
-
-The DevTools server must be configured to enable MCP support:
+### DevTools Server (project-local)
 
 ```bash
-npx reflex-devtools [options]
+reflex-devtools [options]
 
 Options:
   -p, --port <port>         Port to run the server on (default: 4000)
   -h, --host <host>         Host to bind the server to (default: localhost)
-  --mcp                     Enable MCP support with trace storage (required)
+  --mcp                     Enable MCP support with trace storage (required for MCP)
   --max-traces <number>     Maximum traces to store (default: 1000, requires --mcp)
   --help                    Show help message
 ```
 
 Binding beyond `localhost` (e.g. `--host 0.0.0.0`) exposes the unauthenticated state-reading and dispatch API — only do this on trusted local networks, never on the public internet.
 
-### MCP Server Configuration
-
-The MCP server connects to an already-running DevTools server:
+### MCP Bridge (this package)
 
 ```bash
-npx reflex-devtools-mcp [options]
+reflex-devtools-mcp [options]
 
 Options:
   -p, --port <port>         DevTools server port (default: 4000)
@@ -392,44 +335,7 @@ Options:
   --help                    Show help message
 ```
 
-**Note:** Trace storage and limits are configured on the DevTools server, not the MCP server.
-
-### MCP Client Configuration
-
-Configure your AI client (Claude Desktop, Cursor, etc.) to use the MCP server:
-
-#### Claude Desktop
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "reflex-devtools": {
-      "command": "npx",
-      "args": ["reflex-devtools-mcp"],
-      "env": {}
-    }
-  }
-}
-```
-
-#### Cursor IDE
-Edit `~/Library/Application Support/Cursor/settings.json`:
-
-```json
-{
-  "mcp.servers": {
-    "reflex-devtools": {
-      "command": "npx",
-      "args": ["reflex-devtools-mcp"],
-      "env": {},
-      "description": "Reflex DevTools MCP Server"
-    }
-  }
-}
-```
-
-**Note:** For development, use the local built package path. For production, use `npx reflex-devtools-mcp`.
+**Note:** Trace storage and limits are configured on the DevTools server, not the MCP bridge. `npx` runs the bridge over stdio and does not make it project-specific; the project-local `devtools:mcp` script is the separate process that exposes the running app on the configured loopback port.
 
 ---
 
@@ -438,45 +344,28 @@ Edit `~/Library/Application Support/Cursor/settings.json`:
 ### Building from Source
 
 ```bash
-# Clone the repo
 git clone https://github.com/flexsurfer/reflex-devtools.git
 cd reflex-devtools
-
-# Install dependencies
 pnpm install
-
-# Build all packages (DevTools server + MCP)
 pnpm build
-
-# Or build individually:
-pnpm build:devtools    # Build DevTools server
-pnpm build:mcp         # Build MCP server
-
-# Test locally
-./test-mcp-local.sh    # Get Cursor config
-npx reflex-devtools --mcp  # Start DevTools server
-# Then configure Cursor and test
 ```
 
 ### Testing Locally
 
-Test the complete MCP integration:
-
 ```bash
 # Terminal 1: Start DevTools server with MCP support
-npx reflex-devtools --mcp
+node packages/reflex-devtools/dist/cli.js --mcp --host 127.0.0.1 --port 4000
 
-# Terminal 2: Start your test app
+# Terminal 2: Start the test app (browser)
 cd packages/reflex-test-app && pnpm dev
+#   …or headless (no browser):
+cd packages/reflex-test-app && pnpm dev:headless
 
-# Terminal 3: Test MCP server directly
-cd packages/reflex-devtools-mcp
-node dist/cli.js --help
-
-# Or use the test script
-cd ../..
-./test-mcp-local.sh
+# Terminal 3: Run the test suites
+pnpm test
 ```
+
+For agent-sandbox workflows inside this repo (direct `node` entrypoints, no `npx`), see [AGENTS.md](../../AGENTS.md).
 
 ### Project Structure
 
@@ -494,9 +383,8 @@ packages/reflex-devtools-mcp/
 │       ├── dispatchEvent.ts
 │       ├── getHandlers.ts
 │       └── getActiveSubs.ts
+├── test/                  # Tool + stdio integration tests
 ├── dist/                  # Compiled output
-├── package.json           # Package configuration
-├── tsconfig.json          # TypeScript config
 └── README.md              # This file
 ```
 
@@ -506,6 +394,7 @@ packages/reflex-devtools-mcp/
 
 - **[@flexsurfer/reflex](https://github.com/flexsurfer/reflex)** - The reactive state management library
 - **[@flexsurfer/reflex-devtools](https://github.com/flexsurfer/reflex-devtools)** - Main DevTools package with web UI
+- **[Reflex Agent Toolkit](https://github.com/flexsurfer/reflex-agent-toolkit)** - Claude Code / Codex plugin with skills + this MCP preconfigured
 - **[Model Context Protocol](https://modelcontextprotocol.io)** - The MCP specification
 
 ---
@@ -526,9 +415,9 @@ Built with ❤️ for the Reflex community. Special thanks to:
 ---
 
 <div align="center">
-  
+
   **Debug Smarter with AI! 🤖✨**
-  
+
   Made by [@flexsurfer](https://github.com/flexsurfer)
-  
+
 </div>

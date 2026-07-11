@@ -9,8 +9,9 @@
  *
  * Run it (devtools server first, then this; needs Node >= 22 for the
  * global WebSocket the SDK connects through):
- *   npx reflex-devtools --mcp     # terminal 1
- *   pnpm dev:headless             # terminal 2 — vite-node --watch restarts on edit
+ *   node packages/reflex-devtools/dist/cli.js --mcp --host 127.0.0.1 --port 4000
+ *   cd packages/reflex-test-app
+ *   node node_modules/vite-node/vite-node.mjs --watch src/headless.ts
  *
  * This app runs under vite-node so the vite aliases resolve @flexsurfer/*
  * to the local lib sources; a scaffolded project installing from npm can
@@ -24,8 +25,11 @@ import './subs';
 import { effectModes } from './effects.headless';
 import { coeffectModes } from './coeffects.headless';
 
+const serverUrl = process.env.REFLEX_DEVTOOLS_SERVER_URL ?? '127.0.0.1:4000';
+
 enableTracing();
 enableDevtools({
+  serverUrl,
   // runtime: 'headless' is auto-detected (no window); declare the
   // side-effect policy so app_status can report what really executes.
   effectMode: 'safe',
@@ -38,6 +42,7 @@ enableDevtools({
 enableMapSet();
 
 console.log('[headless] reflex-test-app state runtime started — no browser, no React');
+console.log(`[headless] connecting to Reflex DevTools at ${serverUrl}`);
 console.log('[headless] dispatch and inspect via the devtools MCP tools; Ctrl+C to stop');
 
 // With the devtools server unreachable nothing would be left on the event

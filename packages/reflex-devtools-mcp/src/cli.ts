@@ -51,8 +51,15 @@ Configuration for Claude Desktop (add to claude_desktop_config.json):
   "mcpServers": {
     "reflex-devtools": {
       "command": "npx",
-      "args": ["reflex-devtools-mcp"],
-      "env": {}
+      "args": [
+        "--yes",
+        "--package=@flexsurfer/reflex-devtools-mcp",
+        "reflex-devtools-mcp",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4000"
+      ]
     }
   }
 }
@@ -117,4 +124,3 @@ main().catch((error) => {
   console.error('[MCP] Unexpected error:', error);
   process.exit(1);
 });
-

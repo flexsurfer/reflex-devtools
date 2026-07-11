@@ -48,7 +48,8 @@ The MCP earns its keep in everything that follows.
 ### 1. Launch the app
 
 ```
-Bash: npx reflex-devtools --mcp      # devtools server
+Bash: node node_modules/@flexsurfer/reflex-devtools/dist/cli.js --mcp --host 127.0.0.1 --port 4000
+                                      # devtools server with MCP, no npx/package manager
 Bash: tsx watch src/headless.ts      # the app, headless — no browser needed
       (pnpm dev                      #  …or the vite dev server + a browser tab,
                                      #  for the human-supervised variant)

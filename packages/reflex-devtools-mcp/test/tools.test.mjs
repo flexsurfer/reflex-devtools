@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { DevToolsAPIClient, DevToolsServerUnavailableError } from '../dist/httpClient.js';
 import { appStatusTool } from '../dist/tools/appStatus.js';
 import { dispatchEventTool } from '../dist/tools/dispatchEvent.js';
+import { getAppStateTool } from '../dist/tools/getAppState.js';
 import { getHandlersTool } from '../dist/tools/getHandlers.js';
 import { getTraceTool } from '../dist/tools/getTrace.js';
 import { getTracesTool } from '../dist/tools/getTraces.js';
@@ -91,10 +92,32 @@ test('get_handlers tells the agent how to start the DevTools server when unreach
 
   assert.equal(result.isError, true);
   assert.equal(body.error, 'No Reflex DevTools server is connected.');
-  assert.match(body.message, /Start it in the project root with: npx reflex-devtools --mcp/);
+  assert.match(body.message, /Start the project-local DevTools script from the project root/);
+  assert.match(body.message, /npm run devtools:mcp/);
+  assert.match(body.message, /If the script is missing, add "devtools:mcp"/);
   assert.match(body.message, /Then reload the app and retry get_handlers\./);
-  assert.equal(body.command, 'npx reflex-devtools --mcp');
+  assert.equal(body.command, 'npm run devtools:mcp');
   assert.equal(body.retry, 'get_handlers');
+});
+
+test('get_app_state returns only the requested state slice', async () => {
+  const apiClient = {
+    async getAppState() {
+      return {
+        state: {
+          user: { profile: { id: 'u1', name: 'Ada' } },
+          unrelated: { large: ['do-not-return'] },
+        },
+      };
+    },
+  };
+
+  const result = await getAppStateTool(apiClient).handler({ path: 'user.profile' });
+  const body = parseToolResult(result);
+
+  assert.equal(body.path, 'user.profile');
+  assert.deepEqual(body.state, { id: 'u1', name: 'Ada' });
+  assert.equal('unrelated' in body, false);
 });
 
 test('get_traces returns compact rows without full trace tags', async () => {

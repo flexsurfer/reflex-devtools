@@ -17,7 +17,7 @@ export interface GetTracesParams {
 export function getTracesTool(apiClient: DevToolsAPIClient) {
   return {
     name: 'get_traces',
-    description: 'List execution traces from the Reflex application as compact rows: events, subscription operations (create/run/dispose), and render cycles with timing. Failed events carry an "error" summary; events whose effects threw carry an "effectErrors" count. Use get_trace with a row\'s id for full detail (state patches, emitted effects, error stack). To get current subscription values, use get_active_subs.',
+    description: 'List compact Reflex trace rows: events, subscription operations (create/run/dispose), and render cycles with timing. Use a small limit and eventFilter or opType before opening one get_trace row for patches, effects, or an error stack. To get current mounted subscription values, use get_active_subs.',
     inputSchema: {
       type: 'object',
       properties: {

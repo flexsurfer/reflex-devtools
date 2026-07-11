@@ -18,14 +18,17 @@ export function isDevToolsServerUnavailableError(error: unknown): error is DevTo
 }
 
 export function devToolsServerUnavailableBody(retryTool: string) {
+  const command = 'npm run devtools:mcp';
   return {
     error: 'No Reflex DevTools server is connected.',
     message: [
       'No Reflex DevTools server is connected.',
-      'Start it in the project root with: npx reflex-devtools --mcp',
+      'Start the project-local DevTools script from the project root (or use the detected package manager equivalent):',
+      `  ${command}`,
+      'If the script is missing, add "devtools:mcp": "reflex-devtools --mcp --host 127.0.0.1 --port 4000" to package.json.',
       `Then reload the app and retry ${retryTool}.`
     ].join('\n'),
-    command: 'npx reflex-devtools --mcp',
+    command,
     retry: retryTool
   };
 }
