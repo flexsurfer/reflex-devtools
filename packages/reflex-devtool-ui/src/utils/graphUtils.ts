@@ -1,4 +1,4 @@
-import { Trace } from '../types/Trace';
+import type { Trace } from '../types/Trace';
 
 export interface GraphNode {
     id: string;
@@ -23,11 +23,11 @@ export function createGraphData(traces: Trace[]): GraphData {
     const nodes = new Map<string, GraphNode>();
     const links: GraphLink[] = [];
 
-    // First pass: collect all existing sub/run reaction IDs
-    const existingReactions = new Set<string>();
+    // First pass: collect all subscription instances represented in this flush.
+    const existingSubscriptions = new Set<string>();
     traces.forEach(trace => {
-        if (trace.opType === 'sub/run' && trace.tags?.reaction) {
-            existingReactions.add(trace.tags.reaction);
+        if (trace.opType === 'sub/run' && trace.tags?.subscriptionKey) {
+            existingSubscriptions.add(trace.tags.subscriptionKey);
         }
     });
 
@@ -40,32 +40,32 @@ export function createGraphData(traces: Trace[]): GraphData {
     // Process traces
     traces.forEach(trace => {
         if (trace.opType === 'sub/run') {
-            const reactionId = trace.tags?.reaction;
-            if (reactionId) {
-                if (!nodes.has(reactionId)) {
-                    nodes.set(reactionId, { id: reactionId, type: 'sub/run', label: reactionId, level: 0, order: 0 });
+            const subscriptionKey = trace.tags?.subscriptionKey;
+            if (subscriptionKey) {
+                if (!nodes.has(subscriptionKey)) {
+                    nodes.set(subscriptionKey, { id: subscriptionKey, type: 'sub/run', label: subscriptionKey, level: 0, order: 0 });
                 }
                 const deps = trace.tags?.deps || [];
                 if (deps.length === 0) {
-                    links.push({ source: 'appdb', target: reactionId });
+                    links.push({ source: 'appdb', target: subscriptionKey });
                 } else {
                     deps.forEach((dep: string) => {
-                        if (existingReactions.has(dep)) {
+                        if (existingSubscriptions.has(dep)) {
                             if (!nodes.has(dep)) {
                                 nodes.set(dep, { id: dep, type: 'sub/run', label: dep, level: 0, order: 0 });
                             }
-                            links.push({ source: dep, target: reactionId });
+                            links.push({ source: dep, target: subscriptionKey });
                         }
                     });
                 }
             }
         } else if (trace.opType === 'render') {
-            const dep = trace.tags?.reaction;
+            const dep = trace.tags?.subscriptionKey;
             if (dep) {
                 const renderId = `render_${trace.id}`;
                 nodes.set(renderId, { id: renderId, type: 'render', label: trace.operation ?? 'Component', level: 0, order: 0 });
                 renderNodeIds.push(renderId);
-                if (existingReactions.has(dep)) {
+                if (existingSubscriptions.has(dep)) {
                     if (!nodes.has(dep)) {
                         nodes.set(dep, { id: dep, type: 'sub/run', label: dep, level: 0, order: 0 });
                     }
@@ -101,4 +101,3 @@ export function createGraphData(traces: Trace[]): GraphData {
 
     return { nodes: Array.from(nodes.values()), links };
 }
-

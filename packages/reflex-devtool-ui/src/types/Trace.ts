@@ -1,9 +1,16 @@
 export type TraceID = number;
 
+export interface TraceTags extends Record<string, any> {
+    /** Cache key for the subscription instance that ran or triggered a render. */
+    subscriptionKey?: string;
+    /** Cache keys for subscriptions read by a computed subscription. */
+    deps?: string[];
+}
+
 export interface TraceOpts {
     operation?: string;
     opType?: string;
-    tags?: Record<string, any>;
+    tags?: TraceTags;
     childOf?: TraceID;
 }
 

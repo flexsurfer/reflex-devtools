@@ -67,7 +67,7 @@ The plugin starts a version-pinned MCP bridge ([@flexsurfer/reflex-devtools-mcp]
 | `get_handlers` | Which event/effect/subscription ids exist? |
 | `get_app_state` | What is the state *at this path* (scoped reads, not full dumps)? |
 | `eval_sub` | What does any registered subscription return, mounted or not? |
-| `get_active_subs` | What are the current values of mounted subscriptions? |
+| `get_active_subs` | What are the current values of mounted subscriptions and their active dependencies? |
 | `dispatch_event` | Act — and get back the outcome: state patches, emitted effects, or the error |
 | `get_traces` / `get_trace` | What happened recently, including what the agent didn't initiate? |
 
@@ -152,8 +152,8 @@ The same server hosts a web dashboard — pleasant for humans, and the visual co
 
 - **📊 Database State Inspection** — visualize your entire application state in real-time
 - **🔄 Real-time Event Tracing** — watch events and state changes as they happen
-- **🔥 Reactions & Render Tracing** — see reactions being created, run, and disposed
-- **⏱ Performance Profiling** — find slow events and reactions as they happen
+- **🔥 Subscriptions & Render Tracing** — see subscriptions being created, run, and disposed
+- **⏱ Performance Profiling** — find slow events and subscriptions as they happen
 - **🎨 Dark/light themes**, React & React Native support
 
 If your project is already set up for agents (above), the dashboard is already there: open [http://localhost:4000](http://localhost:4000) while `devtools:mcp` is running.

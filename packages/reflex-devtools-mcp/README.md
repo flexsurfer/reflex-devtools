@@ -225,7 +225,8 @@ List all registered handler ids, grouped by handler type.
 
 ### 7. `get_active_subs`
 
-View currently active subscription reactions and their current values.
+View all currently active subscriptions and their current values, including
+mounted root subscriptions and dependencies kept active by computed subscriptions.
 
 **Parameters:**
 - `filter` (string, optional): Filter subscriptions by key name

@@ -1,5 +1,6 @@
-import { registerTraceCb, getAppDb, getReactions, dispatch, getHandlers, getSubscriptionValue, removeTraceCb } from "@flexsurfer/reflex";
+import { registerTraceCb, getAppDb, getSubscriptionDiagnostics, dispatch, getHandlers, getSubscriptionValue, removeTraceCb } from "@flexsurfer/reflex";
 import { reflexReplacer } from "../serialization.js";
+import { diffSubscriptionDiagnostics } from "./subscriptionDiagnostics.js";
 
 export interface DevtoolsConfig {
   serverUrl?: string;
@@ -60,7 +61,7 @@ class DevtoolsClient {
   private isConnected = false;
   private isTracingEnabled = false;
   private serverAvailable = false;
-  private reactionsCache = new Map<string, { version: number; isAlive: boolean }>();
+  private subscriptionVersions = new Map<string, number>();
   private pendingDispatches: PendingDispatch[] = [];
 
   constructor(config: DevtoolsConfig) {
@@ -101,35 +102,12 @@ class DevtoolsClient {
     }
   }
 
-  private mapReactions(resetCache = false): Record<string, any> {
-    if (resetCache) {
-      this.reactionsCache.clear();
-    }
-    const reactions = getReactions();
-    if (!reactions) return {};
-    const changedReactions: Record<string, any> = {};
-
-    for (const [key, reaction] of reactions) {
-      if (reaction.isRoot) continue;
-
-      const currentVersion = reaction.getVersion();
-      const currentIsAlive = reaction.isAlive;
-      const cached = this.reactionsCache.get(key);
-
-      // Send if reaction was alive but now dead
-      if (cached && cached.isAlive && !currentIsAlive) {
-        changedReactions[key] = "reflex-tool-sub-disposed";
-        this.reactionsCache.delete(key);
-      }
-      // Send if this is a new reaction or version changed
-      else if ((!cached || cached.version !== currentVersion) && currentIsAlive) {
-        changedReactions[key] = reaction.getValue();
-        // Update cache with current state
-        this.reactionsCache.set(key, { version: currentVersion, isAlive: currentIsAlive });
-      }
-    }
-
-    return changedReactions;
+  private mapSubscriptionDiagnostics(resetCache = false): Record<string, any> {
+    return diffSubscriptionDiagnostics(
+      getSubscriptionDiagnostics(),
+      this.subscriptionVersions,
+      resetCache,
+    );
   }
 
   private getHandlerKeys(kindToIdToHandler: Record<string, Record<string, any>>): Record<string, string[]> {
@@ -310,7 +288,7 @@ class DevtoolsClient {
         await this.sendEvent({
           type: 'reflex-active-subs',
           component: 'Reflex',
-          payload: this.mapReactions()
+          payload: this.mapSubscriptionDiagnostics()
         });
         await this.reportDispatchResults(traces);
       });
@@ -324,7 +302,7 @@ class DevtoolsClient {
     this.sendEvent({
       type: 'reflex-active-subs',
       component: 'Reflex',
-      payload: this.mapReactions(true)
+      payload: this.mapSubscriptionDiagnostics(true)
     });
     this.sendEvent({
       type: 'reflex-handler-keys',

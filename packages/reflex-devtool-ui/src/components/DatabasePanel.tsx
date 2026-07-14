@@ -7,6 +7,7 @@ export default function DatabasePanel() {
     const db = useSubscription(['db']);
     const activeSubs = useSubscription(['activeSubs']);
     const [viewMode, setViewMode] = useState<'database' | 'subscriptions' | 'handlers'>('database');
+    const hasActiveSubs = activeSubs != null && Object.keys(activeSubs).length > 0;
 
     return (
         <div className="flex flex-col bg-base-100 h-full overflow-hidden">
@@ -43,13 +44,13 @@ export default function DatabasePanel() {
                     )}
                 </div>
                 <div className={`absolute inset-0 overflow-y-auto ${viewMode === 'subscriptions' ? '' : 'invisible pointer-events-none'}`}>
-                    {!activeSubs ? (
+                    {!hasActiveSubs ? (
                         <div className="flex flex-col items-center justify-center h-full text-base-content/60 text-center">
                             <p className="text-lg font-medium">No active subscriptions yet...</p>
                             <p className="text-sm">Active subscriptions will appear here when your app is running</p>
                         </div>
                     ) : (
-                        <JsonViewer src={activeSubs} name="activeComputedSubs" expandLevel={1} />
+                        <JsonViewer src={activeSubs} name="activeSubscriptions" expandLevel={1} />
                     )}
                 </div>
                 <div className={`absolute inset-0 overflow-y-auto ${viewMode === 'handlers' ? '' : 'invisible pointer-events-none'}`}>

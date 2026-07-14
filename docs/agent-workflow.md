@@ -175,7 +175,7 @@ or, for a server-side time-window reconstruction:
 → { ..., confidence: "heuristic" }
 ```
 
-*Feasibility:* the lib already links traces (`childOf`), and render traces carry the component name plus the notifying reaction. The flush is async, so event→flush linkage needs either a server-side time-window correlation (workable but heuristic) or a lib-side stamp of triggering event ids on flush traces (exact; pairs-with lib item). The exact version is the one agents should rely on for automated diagnosis.
+*Feasibility:* the lib already links traces (`childOf`), and render traces carry the component name plus the notifying subscription key. The flush is async, so event→flush linkage needs either a server-side time-window correlation (workable but heuristic) or a lib-side stamp of triggering event ids on flush traces (exact; pairs-with lib item). The exact version is the one agents should rely on for automated diagnosis.
 
 ### 8. The history variant
 
