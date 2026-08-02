@@ -1,3 +1,5 @@
+> **THIS REPOSITORY IS NO LONGER ACTIVE. IT HAS MOVED TO [REFLEX MONOREPO](https://github.com/flexsurfer/reflex/tree/main/packages/reflex-devtools).**
+
 <div align="center">
   <img src="reflex_devtools_logo.jpg" alt="Reflex DevTools Logo" width="200" />
 
